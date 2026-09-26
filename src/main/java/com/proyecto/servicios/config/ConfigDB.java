@@ -28,7 +28,8 @@ import java.util.Map;
 @EnableJpaRepositories(
         basePackages = {
                 "com.proyecto.servicios.repositorys.sf",
-                "com.proyecto.servicios.repositorys.gestopago"
+                "com.proyecto.servicios.repositorys.gestopago",
+                "com.proyecto.servicios.repositorys.producto"
         },
         transactionManagerRef = "sfTransactionManager",
         entityManagerFactoryRef = "sfEntityManagerFactory"
@@ -64,19 +65,23 @@ public class ConfigDB {
     public LocalContainerEntityManagerFactoryBean sfEntityManagerFactory(){
         LocalContainerEntityManagerFactoryBean em= new LocalContainerEntityManagerFactoryBean();
         try{
-          em.setDataSource(sfDatasource());
-          em.setPackagesToScan(
-                  "com.proyecto.servicios.entity.sf",
-                  "com.proyecto.servicios.entity.gestopago"
-          );
-          em.setPersistenceUnitName("sfDatasource");
+            em.setDataSource(sfDatasource());
+            em.setPackagesToScan(
+                    "com.proyecto.servicios.entity.sf",
+                    "com.proyecto.servicios.entity.gestopago",
+                    "com.proyecto.servicios.entity.producto"
+            );
+            em.setPersistenceUnitName("sfDatasource");
             HibernateJpaVendorAdapter vendorAdapter = new HibernateJpaVendorAdapter();
             em.setJpaVendorAdapter(vendorAdapter);
-          Map<String, Object> properties=new HashMap<>();
-          properties.put("hibernate.hbm2ddl.auto", "none");
+            Map<String, Object> properties=new HashMap<>();
+            properties.put("hibernate.hbm2ddl.auto", "none");
             properties.put("hibernate.show-sql", false);
             properties.put("hibernate.dialect", "org.hibernate.dialect.PostgreSQLDialect");
             properties.put("jakarta.persistence.query.timeout", 600000);
+            properties.put("hibernate.jdbc.batch_size", 50);
+            properties.put("hibernate.order_inserts", true);
+            em.setJpaPropertyMap(properties);
 
 
         } catch (Exception e) {
@@ -86,10 +91,11 @@ public class ConfigDB {
         }
         return em;
     }
- @Bean(name="sfTransactionManager")
- public PlatformTransactionManager sfTransactionManager(@Qualifier("sfEntityManagerFactory") EntityManagerFactory sfEntityManagerFactory){
+    @Bean(name="sfTransactionManager")
+    public PlatformTransactionManager sfTransactionManager(@Qualifier("sfEntityManagerFactory") EntityManagerFactory sfEntityManagerFactory){
         return new JpaTransactionManager(sfEntityManagerFactory);
 
- }
+    }
+
 
 }
