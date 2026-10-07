@@ -12,6 +12,8 @@ import com.proyecto.servicios.model.cliente.DomicilioRequest;
 import com.proyecto.servicios.repositorys.cliente.ClienteRepository;
 import com.proyecto.servicios.repositorys.cliente.CuentaRepository;
 import com.proyecto.servicios.repositorys.cliente.DomicilioRepository;
+import com.proyecto.servicios.entity.catalogo.Nacionalidad;
+import com.proyecto.servicios.service.catalogo.NacionalidadService;
 import com.proyecto.servicios.service.cliente.Impl.ClienteServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,6 +47,9 @@ class ClienteServiceImplTest {
     @Mock
     private CuentaService cuentaService;
 
+    @Mock
+    private NacionalidadService nacionalidadService;
+
     @InjectMocks
     private ClienteServiceImpl clienteService;
 
@@ -57,21 +62,21 @@ class ClienteServiceImplTest {
         request.setCurp("PELJ990101HDFRPN01");
         request.setRfc("PELJ990101AB1");
         request.setSexo("M");
-        request.setNacionalidad("Mexicana");
-        request.setEstadoCivil("Soltero");
+        request.setNacionalidad("MEX");
+        request.setEstadoCivil("SOLTERO");
         request.setCorreo("juan.perez@correo.com");
-        request.setTelefonoMovil("5512345678");
+        request.setTelefonoMovil(5512345678L);
         request.setOcupacion("Ingeniero");
         request.setEmpresa("ACME");
-        request.setIngresoMensual(new BigDecimal("15000.00"));
+        request.setIngresoMensual(new BigDecimal("15000"));
 
         DomicilioRequest domicilio = new DomicilioRequest();
         domicilio.setCalle("Reforma");
-        domicilio.setNumeroExterior("100");
+        domicilio.setNumeroExterior(100);
         domicilio.setColonia("Centro");
         domicilio.setMunicipio("Cuauhtemoc");
-        domicilio.setEstado("CDMX");
-        domicilio.setCodigoPostal("06000");
+        domicilio.setEstado("Ciudad de Mexico");
+        domicilio.setCodigoPostal(6000);
         domicilio.setPais("Mexico");
         request.setDomicilio(domicilio);
 
@@ -81,6 +86,11 @@ class ClienteServiceImplTest {
     @Test
     void crear_datosValidos_creaClienteYCuenta() {
         ClienteRequest request = requestValido();
+
+        Nacionalidad mexico = new Nacionalidad();
+        mexico.setCodigo("MEX");
+        mexico.setNombre("México");
+        when(nacionalidadService.buscar("MEX")).thenReturn(Optional.of(mexico));
 
         when(clienteRepository.existsByCurp(request.getCurp())).thenReturn(false);
         when(clienteRepository.existsByRfc(request.getRfc())).thenReturn(false);
@@ -99,6 +109,19 @@ class ClienteServiceImplTest {
 
         assertEquals("1234567890", response.getNumeroCuenta());
         assertEquals("Juan", response.getNombre());
+        assertEquals("15000.00", response.getIngresoMensual().toPlainString());
+        assertEquals("MEX", response.getNacionalidad());
+        assertEquals("México", response.getNacionalidadNombre());
+    }
+
+    @Test
+    void crear_nacionalidadFueraDeCatalogo_lanzaExcepcion() {
+        ClienteRequest request = requestValido();
+        request.setNacionalidad("XYZ");
+        when(nacionalidadService.validar("XYZ"))
+                .thenThrow(new ValidacionNegocioException("La nacionalidad 'XYZ' no existe en el catalogo"));
+
+        assertThrows(ValidacionNegocioException.class, () -> clienteService.crear(request));
     }
 
     @Test

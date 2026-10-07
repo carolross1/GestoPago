@@ -2,8 +2,9 @@ package com.proyecto.servicios.service.cliente;
 
 import com.proyecto.servicios.entity.cliente.Cliente;
 import com.proyecto.servicios.entity.cliente.Login;
-import com.proyecto.servicios.exception.cliente.ClienteNoEncontradoException;
+import com.proyecto.servicios.exception.cliente.CorreoNoEncontradoException;
 import com.proyecto.servicios.exception.cliente.CredencialesInvalidasException;
+import com.proyecto.servicios.exception.cliente.LoginNoRegistradoException;
 import com.proyecto.servicios.exception.cliente.LoginYaRegistradoException;
 import com.proyecto.servicios.model.cliente.LoginRequest;
 import com.proyecto.servicios.model.cliente.LoginResponse;
@@ -52,7 +53,7 @@ class AuthServiceImplTest {
     private Cliente clienteConId(Long id) {
         Cliente cliente = new Cliente();
         cliente.setId(id);
-        cliente.setRfc("PELJ990101AB1");
+        cliente.setCorreo("juan.perez@correo.com");
         return cliente;
     }
 
@@ -60,10 +61,10 @@ class AuthServiceImplTest {
     void registrar_clienteExisteSinLogin_creaCredenciales() {
         Cliente cliente = clienteConId(1L);
         RegistroLoginRequest request = new RegistroLoginRequest();
-        request.setRfc(cliente.getRfc());
+        request.setCorreo(cliente.getCorreo());
         request.setPassword("password123");
 
-        when(clienteRepository.findByRfc(cliente.getRfc())).thenReturn(Optional.of(cliente));
+        when(clienteRepository.findByCorreo(cliente.getCorreo())).thenReturn(Optional.of(cliente));
         when(loginRepository.existsByClienteId(1L)).thenReturn(false);
         when(passwordEncoder.encode("password123")).thenReturn("hash-generado");
 
@@ -74,22 +75,22 @@ class AuthServiceImplTest {
     @Test
     void registrar_clienteNoExiste_lanzaExcepcion() {
         RegistroLoginRequest request = new RegistroLoginRequest();
-        request.setRfc("NOEXISTE01");
+        request.setCorreo("noexiste@correo.com");
         request.setPassword("password123");
 
-        when(clienteRepository.findByRfc("NOEXISTE01")).thenReturn(Optional.empty());
+        when(clienteRepository.findByCorreo("noexiste@correo.com")).thenReturn(Optional.empty());
 
-        assertThrows(ClienteNoEncontradoException.class, () -> authService.registrar(request));
+        assertThrows(CorreoNoEncontradoException.class, () -> authService.registrar(request));
     }
 
     @Test
     void registrar_yaTieneLogin_lanzaExcepcion() {
         Cliente cliente = clienteConId(1L);
         RegistroLoginRequest request = new RegistroLoginRequest();
-        request.setRfc(cliente.getRfc());
+        request.setCorreo(cliente.getCorreo());
         request.setPassword("password123");
 
-        when(clienteRepository.findByRfc(cliente.getRfc())).thenReturn(Optional.of(cliente));
+        when(clienteRepository.findByCorreo(cliente.getCorreo())).thenReturn(Optional.of(cliente));
         when(loginRepository.existsByClienteId(1L)).thenReturn(true);
 
         assertThrows(LoginYaRegistradoException.class, () -> authService.registrar(request));
@@ -104,10 +105,10 @@ class AuthServiceImplTest {
         login.setPasswordHash("hash-guardado");
 
         LoginRequest request = new LoginRequest();
-        request.setRfc(cliente.getRfc());
+        request.setCorreo(cliente.getCorreo());
         request.setPassword("password123");
 
-        when(clienteRepository.findByRfc(cliente.getRfc())).thenReturn(Optional.of(cliente));
+        when(clienteRepository.findByCorreo(cliente.getCorreo())).thenReturn(Optional.of(cliente));
         when(loginRepository.findByClienteId(1L)).thenReturn(Optional.of(login));
         when(passwordEncoder.matches("password123", "hash-guardado")).thenReturn(true);
         when(jwtUtil.generarToken(1L)).thenReturn("token-jwt-generado");
@@ -126,24 +127,59 @@ class AuthServiceImplTest {
         login.setPasswordHash("hash-guardado");
 
         LoginRequest request = new LoginRequest();
-        request.setRfc(cliente.getRfc());
+        request.setCorreo(cliente.getCorreo());
         request.setPassword("incorrecta");
 
-        when(clienteRepository.findByRfc(cliente.getRfc())).thenReturn(Optional.of(cliente));
+        when(clienteRepository.findByCorreo(cliente.getCorreo())).thenReturn(Optional.of(cliente));
         when(loginRepository.findByClienteId(1L)).thenReturn(Optional.of(login));
         when(passwordEncoder.matches(anyString(), anyString())).thenReturn(false);
 
-        assertThrows(CredencialesInvalidasException.class, () -> authService.login(request));
+        CredencialesInvalidasException ex =
+                assertThrows(CredencialesInvalidasException.class, () -> authService.login(request));
+        assertEquals("La contrasena es incorrecta", ex.getMessage());
     }
 
     @Test
-    void login_rfcNoExiste_lanzaCredencialesInvalidas() {
+    void login_correoNoExiste_lanzaCorreoNoEncontrado() {
         LoginRequest request = new LoginRequest();
-        request.setRfc("NOEXISTE01");
+        request.setCorreo("noexiste@correo.com");
         request.setPassword("password123");
 
-        when(clienteRepository.findByRfc("NOEXISTE01")).thenReturn(Optional.empty());
+        when(clienteRepository.findByCorreo("noexiste@correo.com")).thenReturn(Optional.empty());
 
-        assertThrows(CredencialesInvalidasException.class, () -> authService.login(request));
+        assertThrows(CorreoNoEncontradoException.class, () -> authService.login(request));
+    }
+
+    @Test
+    void login_correoConMayusculasYEspacios_seNormaliza() {
+        Cliente cliente = clienteConId(1L);
+        Login login = new Login();
+        login.setId(10L);
+        login.setClienteId(1L);
+        login.setPasswordHash("hash-guardado");
+
+        LoginRequest request = new LoginRequest();
+        request.setCorreo("  Juan.Perez@Correo.com ");
+        request.setPassword("password123");
+
+        when(clienteRepository.findByCorreo("juan.perez@correo.com")).thenReturn(Optional.of(cliente));
+        when(loginRepository.findByClienteId(1L)).thenReturn(Optional.of(login));
+        when(passwordEncoder.matches("password123", "hash-guardado")).thenReturn(true);
+        when(jwtUtil.generarToken(1L)).thenReturn("token-jwt-generado");
+
+        assertEquals("token-jwt-generado", authService.login(request).getToken());
+    }
+
+    @Test
+    void login_correoSinContrasenaRegistrada_lanzaLoginNoRegistrado() {
+        Cliente cliente = clienteConId(1L);
+        LoginRequest request = new LoginRequest();
+        request.setCorreo(cliente.getCorreo());
+        request.setPassword("password123");
+
+        when(clienteRepository.findByCorreo(cliente.getCorreo())).thenReturn(Optional.of(cliente));
+        when(loginRepository.findByClienteId(1L)).thenReturn(Optional.empty());
+
+        assertThrows(LoginNoRegistradoException.class, () -> authService.login(request));
     }
 }
