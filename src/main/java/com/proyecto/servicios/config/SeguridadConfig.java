@@ -18,7 +18,9 @@ public class SeguridadConfig {
     @Bean
     public FilterRegistrationBean<SesionActivaFilter> sesionActivaFilterRegistration(SesionActivaFilter filtro) {
         FilterRegistrationBean<SesionActivaFilter> registration = new FilterRegistrationBean<>(filtro);
-        registration.addUrlPatterns("/clientes/*", "/cuentas/*");
+        // La sincronizacion del catalogo modifica la BD y consume cuota de la API: exige sesion.
+        // GET /catalogos/nacionalidades queda publico para poder llenar el combo antes del login.
+        registration.addUrlPatterns("/clientes/*", "/cuentas/*", "/catalogos/nacionalidades/sincronizar");
         registration.setOrder(1);
         return registration;
     }

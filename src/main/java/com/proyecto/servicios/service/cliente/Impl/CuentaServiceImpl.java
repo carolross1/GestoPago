@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.security.SecureRandom;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -41,6 +42,8 @@ public class CuentaServiceImpl implements CuentaService {
     @Override
     @Transactional
     public Cuenta crearCuentaParaCliente(Long clienteId) {
+        BigDecimal saldoApertura = dosDecimales(saldoInicial);
+
         Cuenta cuenta = new Cuenta();
         cuenta.setClienteId(clienteId);
         cuenta.setNumeroCuenta(generarNumeroCuentaUnico());
@@ -50,11 +53,11 @@ public class CuentaServiceImpl implements CuentaService {
         Saldo aperturaSaldo = new Saldo();
         aperturaSaldo.setCuentaId(cuenta.getId());
         aperturaSaldo.setTipoMovimiento(MOVIMIENTO_APERTURA);
-        aperturaSaldo.setMonto(saldoInicial);
-        aperturaSaldo.setSaldoResultante(saldoInicial);
+        aperturaSaldo.setMonto(saldoApertura);
+        aperturaSaldo.setSaldoResultante(saldoApertura);
         saldoRepository.save(aperturaSaldo);
 
-        log.info("Cuenta creada para cliente id={} con saldo inicial {}", clienteId, saldoInicial);
+        log.info("Cuenta creada para cliente id={} con saldo inicial {}", clienteId, saldoApertura);
         return cuenta;
     }
 
@@ -72,8 +75,11 @@ public class CuentaServiceImpl implements CuentaService {
 
         SaldoResponse response = new SaldoResponse();
         response.setNumeroCuenta(numeroCuenta);
-        response.setSaldoActual(ultimo.getSaldoResultante());
-        response.setFechaUltimoMovimiento(ultimo.getFecha());
+        response.setSaldoActual(dosDecimales(ultimo.getSaldoResultante()));
+        if (ultimo.getFecha() != null) {
+            response.setFechaUltimoMovimiento(ultimo.getFecha().toLocalDate());
+            response.setHoraUltimoMovimiento(ultimo.getFecha().toLocalTime().withNano(0));
+        }
         return response;
     }
 
@@ -104,12 +110,20 @@ public class CuentaServiceImpl implements CuentaService {
         response.setNumeroCuenta(cuenta.getNumeroCuenta());
         response.setClienteId(cuenta.getClienteId());
         response.setEstatus(cuenta.getEstatus());
-        response.setFechaApertura(cuenta.getFechaApertura());
+        if (cuenta.getFechaApertura() != null) {
+            response.setFechaApertura(cuenta.getFechaApertura().toLocalDate());
+            response.setHoraApertura(cuenta.getFechaApertura().toLocalTime().withNano(0));
+        }
 
         saldoRepository.findFirstByCuentaIdOrderByFechaDesc(cuenta.getId())
-                .ifPresent(saldo -> response.setSaldoActual(saldo.getSaldoResultante()));
+                .ifPresent(saldo -> response.setSaldoActual(dosDecimales(saldo.getSaldoResultante())));
 
         return response;
+    }
+
+    /** Todas las cantidades se manejan con exactamente 2 decimales. */
+    private BigDecimal dosDecimales(BigDecimal valor) {
+        return valor == null ? null : valor.setScale(2, RoundingMode.HALF_UP);
     }
 
     private String generarNumeroCuentaUnico() {

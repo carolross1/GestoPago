@@ -1,6 +1,7 @@
 package com.proyecto.servicios.entity.cliente;
 
 import com.proyecto.servicios.security.EncryptedStringConverter;
+import com.proyecto.servicios.util.CorreoUtil;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -95,6 +96,14 @@ public class Cliente {
 
     @Column(name = "fecha_actualizacion", nullable = false)
     private LocalDateTime fechaActualizacion;
+
+    /**
+     * Capa 2: pase lo que pase en el resto del codigo, la entidad nunca
+     * guarda un correo con mayusculas (se normaliza antes de cifrarse).
+     */
+    public void setCorreo(String correo) {
+        this.correo = CorreoUtil.normalizar(correo);
+    }
 
     @PrePersist
     void onCreate() {

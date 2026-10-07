@@ -17,16 +17,19 @@ import com.proyecto.servicios.repositorys.cliente.ClienteRepository;
 import com.proyecto.servicios.repositorys.cliente.CuentaRepository;
 import com.proyecto.servicios.repositorys.cliente.DomicilioRepository;
 import com.proyecto.servicios.service.cliente.ClienteService;
+import com.proyecto.servicios.service.catalogo.NacionalidadService;
 import com.proyecto.servicios.service.cliente.CuentaService;
+import com.proyecto.servicios.util.CorreoUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Period;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -39,21 +42,27 @@ public class ClienteServiceImpl implements ClienteService {
     private final DomicilioRepository domicilioRepository;
     private final CuentaRepository cuentaRepository;
     private final CuentaService cuentaService;
+    private final NacionalidadService nacionalidadService;
 
     public ClienteServiceImpl(ClienteRepository clienteRepository,
                                DomicilioRepository domicilioRepository,
                                CuentaRepository cuentaRepository,
-                               CuentaService cuentaService) {
+                               CuentaService cuentaService,
+                               NacionalidadService nacionalidadService) {
         this.clienteRepository = clienteRepository;
         this.domicilioRepository = domicilioRepository;
         this.cuentaRepository = cuentaRepository;
         this.cuentaService = cuentaService;
+        this.nacionalidadService = nacionalidadService;
     }
 
     @Override
     @Transactional
     public ClienteResponse crear(ClienteRequest request) {
         validarMayoriaDeEdad(request.getFechaNacimiento());
+        // La nacionalidad debe existir en el catalogo (tabla catalogo_nacionalidades)
+        nacionalidadService.validar(request.getNacionalidad());
+        request.setCorreo(CorreoUtil.normalizar(request.getCorreo()));
 
         if (clienteRepository.existsByCurp(request.getCurp())) {
             throw new CurpDuplicadaException(request.getCurp());
@@ -83,11 +92,12 @@ public class ClienteServiceImpl implements ClienteService {
     public ClienteResponse actualizar(Long id, ClienteActualizaRequest request) {
         Cliente cliente = buscarPorId(id);
 
-        if (request.getCorreo() != null && !request.getCorreo().equals(cliente.getCorreo())) {
-            if (clienteRepository.existsByCorreo(request.getCorreo())) {
-                throw new CorreoDuplicadoException(request.getCorreo());
+        String nuevoCorreo = CorreoUtil.normalizar(request.getCorreo());
+        if (nuevoCorreo != null && !nuevoCorreo.equals(cliente.getCorreo())) {
+            if (clienteRepository.existsByCorreo(nuevoCorreo)) {
+                throw new CorreoDuplicadoException(nuevoCorreo);
             }
-            cliente.setCorreo(request.getCorreo());
+            cliente.setCorreo(nuevoCorreo);
         }
 
         if (request.getNombre() != null) cliente.setNombre(request.getNombre());
@@ -95,13 +105,15 @@ public class ClienteServiceImpl implements ClienteService {
         if (request.getApellidoPaterno() != null) cliente.setApellidoPaterno(request.getApellidoPaterno());
         if (request.getApellidoMaterno() != null) cliente.setApellidoMaterno(request.getApellidoMaterno());
         if (request.getSexo() != null) cliente.setSexo(request.getSexo());
-        if (request.getNacionalidad() != null) cliente.setNacionalidad(request.getNacionalidad());
+        if (request.getNacionalidad() != null) {
+            cliente.setNacionalidad(nacionalidadService.validar(request.getNacionalidad()).getCodigo());
+        }
         if (request.getEstadoCivil() != null) cliente.setEstadoCivil(request.getEstadoCivil());
-        if (request.getTelefonoMovil() != null) cliente.setTelefonoMovil(request.getTelefonoMovil());
-        if (request.getTelefonoAlternativo() != null) cliente.setTelefonoAlternativo(request.getTelefonoAlternativo());
+        if (request.getTelefonoMovil() != null) cliente.setTelefonoMovil(aTexto(request.getTelefonoMovil()));
+        if (request.getTelefonoAlternativo() != null) cliente.setTelefonoAlternativo(aTexto(request.getTelefonoAlternativo()));
         if (request.getOcupacion() != null) cliente.setOcupacion(request.getOcupacion());
         if (request.getEmpresa() != null) cliente.setEmpresa(request.getEmpresa());
-        if (request.getIngresoMensual() != null) cliente.setIngresoMensual(request.getIngresoMensual());
+        if (request.getIngresoMensual() != null) cliente.setIngresoMensual(dosDecimales(request.getIngresoMensual()));
 
         cliente = clienteRepository.save(cliente);
 
@@ -151,7 +163,7 @@ public class ClienteServiceImpl implements ClienteService {
 
     @Override
     public ClienteResponse obtenerPorCorreo(String correo) {
-        Cliente cliente = clienteRepository.findByCorreo(correo)
+        Cliente cliente = clienteRepository.findByCorreo(CorreoUtil.normalizar(correo))
                 .orElseThrow(() -> new ClienteNoEncontradoException("No se encontro un cliente con ese correo"));
         return construirResponseCompleto(cliente);
     }
@@ -202,6 +214,28 @@ public class ClienteServiceImpl implements ClienteService {
         }
     }
 
+    /*
+     * Conversiones numero <-> texto. En la API telefonos, numero exterior/
+     * interior y CP son numericos, pero en la base se guardan como texto
+     * cifrado (el cifrado AES trabaja sobre texto).
+     */
+    private String aTexto(Number valor) {
+        return valor == null ? null : String.valueOf(valor);
+    }
+
+    private Long aLong(String valor) {
+        return (valor == null || valor.isBlank()) ? null : Long.valueOf(valor.trim());
+    }
+
+    private Integer aInteger(String valor) {
+        return (valor == null || valor.isBlank()) ? null : Integer.valueOf(valor.trim());
+    }
+
+    /** Todas las cantidades se manejan con exactamente 2 decimales. */
+    private BigDecimal dosDecimales(BigDecimal valor) {
+        return valor == null ? null : valor.setScale(2, RoundingMode.HALF_UP);
+    }
+
     private void copiarCamposBasicos(ClienteRequest request, Cliente cliente) {
         cliente.setNombre(request.getNombre());
         cliente.setSegundoNombre(request.getSegundoNombre());
@@ -214,11 +248,11 @@ public class ClienteServiceImpl implements ClienteService {
         cliente.setNacionalidad(request.getNacionalidad());
         cliente.setEstadoCivil(request.getEstadoCivil());
         cliente.setCorreo(request.getCorreo());
-        cliente.setTelefonoMovil(request.getTelefonoMovil());
-        cliente.setTelefonoAlternativo(request.getTelefonoAlternativo());
+        cliente.setTelefonoMovil(aTexto(request.getTelefonoMovil()));
+        cliente.setTelefonoAlternativo(aTexto(request.getTelefonoAlternativo()));
         cliente.setOcupacion(request.getOcupacion());
         cliente.setEmpresa(request.getEmpresa());
-        cliente.setIngresoMensual(request.getIngresoMensual());
+        cliente.setIngresoMensual(dosDecimales(request.getIngresoMensual()));
         cliente.setActivo(true);
     }
 
@@ -231,12 +265,13 @@ public class ClienteServiceImpl implements ClienteService {
 
     private void actualizarDomicilio(Domicilio domicilio, DomicilioRequest request) {
         domicilio.setCalle(request.getCalle());
-        domicilio.setNumeroExterior(request.getNumeroExterior());
-        domicilio.setNumeroInterior(request.getNumeroInterior());
+        domicilio.setNumeroExterior(aTexto(request.getNumeroExterior()));
+        domicilio.setNumeroInterior(aTexto(request.getNumeroInterior()));
         domicilio.setColonia(request.getColonia());
         domicilio.setMunicipio(request.getMunicipio());
         domicilio.setEstado(request.getEstado());
-        domicilio.setCodigoPostal(request.getCodigoPostal());
+        // El CP se guarda siempre con 5 digitos: 6000 -> "06000"
+        domicilio.setCodigoPostal(String.format("%05d", request.getCodigoPostal()));
         domicilio.setPais(request.getPais());
     }
 
@@ -260,26 +295,32 @@ public class ClienteServiceImpl implements ClienteService {
         response.setRfc(cliente.getRfc());
         response.setSexo(cliente.getSexo());
         response.setNacionalidad(cliente.getNacionalidad());
+        nacionalidadService.buscar(cliente.getNacionalidad())
+                .ifPresent(n -> response.setNacionalidadNombre(n.getNombre()));
         response.setEstadoCivil(cliente.getEstadoCivil());
         response.setCorreo(cliente.getCorreo());
-        response.setTelefonoMovil(cliente.getTelefonoMovil());
-        response.setTelefonoAlternativo(cliente.getTelefonoAlternativo());
+        response.setTelefonoMovil(aLong(cliente.getTelefonoMovil()));
+        response.setTelefonoAlternativo(aLong(cliente.getTelefonoAlternativo()));
         response.setOcupacion(cliente.getOcupacion());
         response.setEmpresa(cliente.getEmpresa());
-        response.setIngresoMensual(cliente.getIngresoMensual());
+        response.setIngresoMensual(dosDecimales(cliente.getIngresoMensual()));
         response.setActivo(cliente.getActivo());
-        response.setFechaRegistro(cliente.getFechaRegistro());
+        if (cliente.getFechaRegistro() != null) {
+            // Fecha y hora se regresan en apartados separados
+            response.setFechaRegistro(cliente.getFechaRegistro().toLocalDate());
+            response.setHoraRegistro(cliente.getFechaRegistro().toLocalTime().withNano(0));
+        }
         response.setNumeroCuenta(numeroCuenta);
 
         if (domicilio != null) {
             DomicilioRequest domicilioDto = new DomicilioRequest();
             domicilioDto.setCalle(domicilio.getCalle());
-            domicilioDto.setNumeroExterior(domicilio.getNumeroExterior());
-            domicilioDto.setNumeroInterior(domicilio.getNumeroInterior());
+            domicilioDto.setNumeroExterior(aInteger(domicilio.getNumeroExterior()));
+            domicilioDto.setNumeroInterior(aInteger(domicilio.getNumeroInterior()));
             domicilioDto.setColonia(domicilio.getColonia());
             domicilioDto.setMunicipio(domicilio.getMunicipio());
             domicilioDto.setEstado(domicilio.getEstado());
-            domicilioDto.setCodigoPostal(domicilio.getCodigoPostal());
+            domicilioDto.setCodigoPostal(aInteger(domicilio.getCodigoPostal()));
             domicilioDto.setPais(domicilio.getPais());
             response.setDomicilio(domicilioDto);
         }
