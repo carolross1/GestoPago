@@ -1,0 +1,7 @@
+package com.proyecto.servicios.exception.cliente;
+
+public class CredencialesInvalidasException extends RuntimeException {
+    public CredencialesInvalidasException(String mensaje) {
+        super(mensaje);
+    }
+}
