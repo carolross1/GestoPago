@@ -3,16 +3,20 @@ package com.proyecto.servicios.service.cliente.Impl;
 import com.proyecto.servicios.entity.cliente.Cliente;
 import com.proyecto.servicios.entity.cliente.Cuenta;
 import com.proyecto.servicios.entity.cliente.Domicilio;
+import com.proyecto.servicios.exception.cliente.ClienteInactivoException;
 import com.proyecto.servicios.exception.cliente.ClienteNoEncontradoException;
 import com.proyecto.servicios.exception.cliente.CorreoDuplicadoException;
-import com.proyecto.servicios.exception.cliente.CuentaNoEncontradaException;
 import com.proyecto.servicios.exception.cliente.CurpDuplicadaException;
 import com.proyecto.servicios.exception.cliente.RfcDuplicadoException;
 import com.proyecto.servicios.exception.cliente.ValidacionNegocioException;
 import com.proyecto.servicios.model.cliente.ClienteActualizaRequest;
+import com.proyecto.servicios.model.cliente.ClienteFiltroRequest;
 import com.proyecto.servicios.model.cliente.ClienteRequest;
 import com.proyecto.servicios.model.cliente.ClienteResponse;
 import com.proyecto.servicios.model.cliente.DomicilioRequest;
+import com.proyecto.servicios.model.cliente.DomicilioResponse;
+import com.proyecto.servicios.model.comun.PaginaResponse;
+import com.proyecto.servicios.repositorys.cliente.ClienteSpecifications;
 import com.proyecto.servicios.repositorys.cliente.ClienteRepository;
 import com.proyecto.servicios.repositorys.cliente.CuentaRepository;
 import com.proyecto.servicios.repositorys.cliente.DomicilioRepository;
@@ -21,16 +25,17 @@ import com.proyecto.servicios.service.catalogo.NacionalidadService;
 import com.proyecto.servicios.service.cliente.CuentaService;
 import com.proyecto.servicios.util.CorreoUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.Period;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -87,45 +92,64 @@ public class ClienteServiceImpl implements ClienteService {
         return construirResponse(cliente, domicilio, cuenta.getNumeroCuenta());
     }
 
+    /**
+     * Actualizacion parcial sin @Transactional: todas las validaciones
+     * (existencia, cliente activo, correo duplicado, nacionalidad) se hacen
+     * con Optional ANTES de escribir, y cada cambio se guarda de forma
+     * explicita con save() del repositorio.
+     */
     @Override
-    @Transactional
-    public ClienteResponse actualizar(Long id, ClienteActualizaRequest request) {
-        Cliente cliente = buscarPorId(id);
+    public ClienteResponse actualizar(ClienteActualizaRequest request) {
+        Long id = request.getId();
 
-        String nuevoCorreo = CorreoUtil.normalizar(request.getCorreo());
-        if (nuevoCorreo != null && !nuevoCorreo.equals(cliente.getCorreo())) {
-            if (clienteRepository.existsByCorreo(nuevoCorreo)) {
-                throw new CorreoDuplicadoException(nuevoCorreo);
-            }
-            cliente.setCorreo(nuevoCorreo);
-        }
+        // 1. El cliente debe existir: findById regresa Optional -> si esta vacio, 404
+        Cliente cliente = clienteRepository.findById(id)
+                .orElseThrow(() -> new ClienteNoEncontradoException("No se encontro el cliente con id " + id));
 
-        if (request.getNombre() != null) cliente.setNombre(request.getNombre());
-        if (request.getSegundoNombre() != null) cliente.setSegundoNombre(request.getSegundoNombre());
-        if (request.getApellidoPaterno() != null) cliente.setApellidoPaterno(request.getApellidoPaterno());
-        if (request.getApellidoMaterno() != null) cliente.setApellidoMaterno(request.getApellidoMaterno());
-        if (request.getSexo() != null) cliente.setSexo(request.getSexo());
-        if (request.getNacionalidad() != null) {
-            cliente.setNacionalidad(nacionalidadService.validar(request.getNacionalidad()).getCodigo());
-        }
-        if (request.getEstadoCivil() != null) cliente.setEstadoCivil(request.getEstadoCivil());
-        if (request.getTelefonoMovil() != null) cliente.setTelefonoMovil(aTexto(request.getTelefonoMovil()));
-        if (request.getTelefonoAlternativo() != null) cliente.setTelefonoAlternativo(aTexto(request.getTelefonoAlternativo()));
-        if (request.getOcupacion() != null) cliente.setOcupacion(request.getOcupacion());
-        if (request.getEmpresa() != null) cliente.setEmpresa(request.getEmpresa());
-        if (request.getIngresoMensual() != null) cliente.setIngresoMensual(dosDecimales(request.getIngresoMensual()));
+        // 2. Regla de negocio: un cliente dado de baja no se modifica -> 409
+        Optional.of(cliente)
+                .filter(c -> Boolean.TRUE.equals(c.getActivo()))
+                .orElseThrow(() -> new ClienteInactivoException(id, "modificar"));
 
-        cliente = clienteRepository.save(cliente);
+        // 3. Correo: solo si viene y es distinto al actual; no puede ser de otro cliente -> 409
+        Optional.ofNullable(request.getCorreo())
+                .map(CorreoUtil::normalizar)
+                .filter(correo -> !correo.equals(cliente.getCorreo()))
+                .ifPresent(correo -> {
+                    if (clienteRepository.existsByCorreo(correo)) {
+                        throw new CorreoDuplicadoException(correo);
+                    }
+                    cliente.setCorreo(correo);
+                });
 
-        Domicilio domicilio = domicilioRepository.findByClienteId(id).orElse(null);
-        if (request.getDomicilio() != null) {
-            if (domicilio == null) {
-                domicilio = mapearDomicilio(request.getDomicilio(), id);
-            } else {
-                actualizarDomicilio(domicilio, request.getDomicilio());
-            }
-            domicilio = domicilioRepository.save(domicilio);
-        }
+        // 4. Cada campo se aplica SOLO si viene en la solicitud (Optional vacio = no se modifica)
+        Optional.ofNullable(request.getNombre()).ifPresent(cliente::setNombre);
+        Optional.ofNullable(request.getSegundoNombre()).ifPresent(cliente::setSegundoNombre);
+        Optional.ofNullable(request.getApellidoPaterno()).ifPresent(cliente::setApellidoPaterno);
+        Optional.ofNullable(request.getApellidoMaterno()).ifPresent(cliente::setApellidoMaterno);
+        Optional.ofNullable(request.getSexo()).ifPresent(cliente::setSexo);
+        Optional.ofNullable(request.getEstadoCivil()).ifPresent(cliente::setEstadoCivil);
+        Optional.ofNullable(request.getOcupacion()).ifPresent(cliente::setOcupacion);
+        Optional.ofNullable(request.getEmpresa()).ifPresent(cliente::setEmpresa);
+        Optional.ofNullable(request.getNacionalidad())
+                .map(codigo -> nacionalidadService.validar(codigo).getCodigo())
+                .ifPresent(cliente::setNacionalidad);
+        Optional.ofNullable(request.getTelefonoMovil()).map(this::aTexto).ifPresent(cliente::setTelefonoMovil);
+        Optional.ofNullable(request.getTelefonoAlternativo()).map(this::aTexto).ifPresent(cliente::setTelefonoAlternativo);
+        Optional.ofNullable(request.getIngresoMensual()).map(this::dosDecimales).ifPresent(cliente::setIngresoMensual);
+
+        clienteRepository.save(cliente);
+
+        // 5. Domicilio: si viene, se actualiza el existente o se crea uno; si no viene, se conserva el actual
+        Domicilio domicilio = Optional.ofNullable(request.getDomicilio())
+                .map(nuevo -> domicilioRepository.findByClienteId(id)
+                        .map(existente -> {
+                            actualizarDomicilio(existente, nuevo);
+                            return existente;
+                        })
+                        .orElseGet(() -> mapearDomicilio(nuevo, id)))
+                .map(domicilioRepository::save)
+                .orElseGet(() -> domicilioRepository.findByClienteId(id).orElse(null));
 
         String numeroCuenta = cuentaRepository.findByClienteId(id)
                 .map(Cuenta::getNumeroCuenta)
@@ -134,77 +158,39 @@ public class ClienteServiceImpl implements ClienteService {
         return construirResponse(cliente, domicilio, numeroCuenta);
     }
 
+
+    /**
+     * Busqueda dinamica: un solo metodo para cualquier combinacion de
+     * filtros (ver ClienteSpecifications). Resultado paginado y ordenado por id.
+     */
     @Override
-    public ClienteResponse obtenerPorId(Long id) {
-        Cliente cliente = buscarPorId(id);
-        return construirResponseCompleto(cliente);
+    public PaginaResponse<ClienteResponse> buscar(ClienteFiltroRequest filtro) {
+        PageRequest pagina = PageRequest.of(filtro.getPagina(), filtro.getTamano(), Sort.by("id"));
+        Page<ClienteResponse> resultado = clienteRepository
+                .findAll(ClienteSpecifications.conFiltros(filtro), pagina)
+                .map(this::construirResponseCompleto);
+        return new PaginaResponse<>(resultado);
     }
 
+    /**
+     * Baja logica con Optional: primero se valida que el cliente exista (404)
+     * y que siga activo (409); solo entonces se escribe.
+     */
     @Override
-    public List<ClienteResponse> listarTodos() {
-        return clienteRepository.findAll().stream()
-                .map(this::construirResponseCompleto)
-                .collect(Collectors.toList());
-    }
+    public ClienteResponse darDeBaja(Long id) {
+        Cliente cliente = clienteRepository.findById(id)
+                .orElseThrow(() -> new ClienteNoEncontradoException("No se encontro el cliente con id " + id));
 
-    @Override
-    public ClienteResponse obtenerPorCurp(String curp) {
-        Cliente cliente = clienteRepository.findByCurp(curp)
-                .orElseThrow(() -> new ClienteNoEncontradoException("No se encontro un cliente con esa CURP"));
-        return construirResponseCompleto(cliente);
-    }
+        Optional.of(cliente)
+                .filter(c -> Boolean.TRUE.equals(c.getActivo()))
+                .orElseThrow(() -> new ClienteInactivoException(id, "dar de baja nuevamente"));
 
-    @Override
-    public ClienteResponse obtenerPorRfc(String rfc) {
-        Cliente cliente = clienteRepository.findByRfc(rfc)
-                .orElseThrow(() -> new ClienteNoEncontradoException("No se encontro un cliente con ese RFC"));
-        return construirResponseCompleto(cliente);
-    }
-
-    @Override
-    public ClienteResponse obtenerPorCorreo(String correo) {
-        Cliente cliente = clienteRepository.findByCorreo(CorreoUtil.normalizar(correo))
-                .orElseThrow(() -> new ClienteNoEncontradoException("No se encontro un cliente con ese correo"));
-        return construirResponseCompleto(cliente);
-    }
-
-    @Override
-    public List<ClienteResponse> listarActivos() {
-        return clienteRepository.findByActivoTrue().stream()
-                .map(this::construirResponseCompleto)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<ClienteResponse> listarPorRangoFechas(LocalDateTime desde, LocalDateTime hasta) {
-        return clienteRepository.findByFechaRegistroBetween(desde, hasta).stream()
-                .map(this::construirResponseCompleto)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional
-    public void darDeBaja(Long id) {
-        Cliente cliente = buscarPorId(id);
         cliente.setActivo(false);
         clienteRepository.save(cliente);
         // Regla de negocio: solo clientes activos pueden tener cuentas activas
         cuentaService.desactivarCuentaDeCliente(id);
         log.info("Cliente id={} dado de baja (baja logica)", id);
-    }
-
-    @Override
-    public ClienteResponse obtenerPorNumeroCuenta(String numeroCuenta) {
-        Cuenta cuenta = cuentaRepository.findByNumeroCuenta(numeroCuenta)
-                .orElseThrow(() -> new CuentaNoEncontradaException("No se encontro una cuenta con ese numero"));
-        Cliente cliente = buscarPorId(cuenta.getClienteId());
-        return construirResponse(cliente, domicilioRepository.findByClienteId(cliente.getId()).orElse(null),
-                numeroCuenta);
-    }
-
-    private Cliente buscarPorId(Long id) {
-        return clienteRepository.findById(id)
-                .orElseThrow(() -> new ClienteNoEncontradoException("No se encontro el cliente con id " + id));
+        return construirResponseCompleto(cliente);
     }
 
     private void validarMayoriaDeEdad(LocalDate fechaNacimiento) {
@@ -313,7 +299,7 @@ public class ClienteServiceImpl implements ClienteService {
         response.setNumeroCuenta(numeroCuenta);
 
         if (domicilio != null) {
-            DomicilioRequest domicilioDto = new DomicilioRequest();
+            DomicilioResponse domicilioDto = new DomicilioResponse();
             domicilioDto.setCalle(domicilio.getCalle());
             domicilioDto.setNumeroExterior(aInteger(domicilio.getNumeroExterior()));
             domicilioDto.setNumeroInterior(aInteger(domicilio.getNumeroInterior()));

@@ -4,20 +4,32 @@ import com.proyecto.servicios.util.CorreoUtil;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
+import com.proyecto.servicios.model.comun.SolicitudEstricta;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.math.BigDecimal;
 
 import static com.proyecto.servicios.model.cliente.ValidacionPatrones.*;
 
 /**
- * Solo los campos que SI se pueden actualizar. CURP, RFC y numero de
- * cuenta nunca se exponen aqui a proposito: no se pueden modificar.
- * Todos son opcionales (null = no se modifica), pero si vienen deben
- * cumplir las mismas reglas que en el alta.
+ * id del cliente + los campos que SI se pueden actualizar.
+ *
+ * Campos controlados por el servidor (activo, fechaRegistro,
+ * numeroCuenta) y datos inmutables (CURP, RFC, fechaNacimiento) NO existen
+ * en este DTO: si el JSON los trae, SolicitudEstricta rechaza la solicitud
+ * con 400. Los demas campos son opcionales (null = no se modifica), pero
+ * si vienen deben cumplir las mismas reglas que en el alta.
  */
 @Data
-public class ClienteActualizaRequest {
+@EqualsAndHashCode(callSuper = false)
+public class ClienteActualizaRequest extends SolicitudEstricta {
+
+    /** Cliente a actualizar. Solo lo identifica: el id nunca se modifica. */
+    @NotNull(message = "El id del cliente es obligatorio")
+    @Positive(message = "El id debe ser mayor a cero")
+    @Schema(example = "3")
+    private Long id;
 
     @Size(min = 2, max = 50, message = "Debe tener entre 2 y 50 caracteres")
     @Pattern(regexp = SOLO_LETRAS, message = MSG_SOLO_LETRAS)

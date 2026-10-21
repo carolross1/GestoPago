@@ -25,7 +25,8 @@ WORKDIR /app
 COPY --from=build /app/app.jar app.jar
 
 # Ajustes de memoria para el plan gratis de Render (512 MB de RAM)
-ENV JAVA_OPTS="-XX:MaxRAMPercentage=75 -XX:+UseSerialGC -Xss512k -XX:TieredStopAtLevel=1"
+# user.timezone: Render corre en UTC; sin esto las fechas/horas saldrian 6 horas adelantadas
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=75 -XX:+UseSerialGC -Xss512k -XX:TieredStopAtLevel=1 -Duser.timezone=America/Mexico_City"
 
 EXPOSE 8080
 

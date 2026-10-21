@@ -1,6 +1,6 @@
 package com.proyecto.servicios.config;
 
-import com.proyecto.servicios.model.GenericResponse;
+import com.proyecto.servicios.model.comun.RespuestaApi;
 import io.swagger.v3.core.converter.ModelConverters;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -61,17 +61,16 @@ public class OpenApi {
     @Bean
     public OpenApiCustomizer respuesta401EnEndpointsProtegidos() {
         return openApi -> {
-            Map<String, Schema> esquemas = ModelConverters.getInstance().read(GenericResponse.class);
+            Map<String, Schema> esquemas = ModelConverters.getInstance().read(RespuestaApi.class);
             esquemas.forEach(openApi.getComponents()::addSchemas);
 
             ApiResponse sinToken = new ApiResponse()
                     .description("Falta el token, es invalido o la sesion expiro por inactividad")
                     .content(new Content().addMediaType("application/json", new MediaType()
-                            .schema(new Schema<>().$ref("#/components/schemas/GenericResponse"))
-                            .addExamples("Sin token", new Example().value(
-                                    Map.of("codigo", 401, "mensaje", "Falta el token de autenticacion")))
+                            .schema(new Schema<>().$ref("#/components/schemas/RespuestaApi"))
+                            .addExamples("Sin token", new Example().value(error401("Falta el token de autenticacion")))
                             .addExamples("Sesion expirada", new Example().value(
-                                    Map.of("codigo", 401, "mensaje", "Sesion expirada por inactividad, inicia sesion nuevamente")))));
+                                    error401("Sesion expirada por inactividad, inicia sesion nuevamente")))));
 
             corregirEjemplosDeDinero(openApi);
 
@@ -111,5 +110,19 @@ public class OpenApi {
                 }
             }
         }
+    }
+
+    /** Ejemplo de 401 con la misma estructura RespuestaApi del resto de la API. */
+    private static Map<String, Object> error401(String mensaje) {
+        Map<String, Object> ejemplo = new java.util.LinkedHashMap<>();
+        ejemplo.put("exito", false);
+        ejemplo.put("codigo", 401);
+        ejemplo.put("mensaje", mensaje);
+        ejemplo.put("fecha", "2026/10/16");
+        ejemplo.put("hora", "18:30:05");
+        ejemplo.put("ruta", "/clientes/buscar");
+        ejemplo.put("datos", null);
+        ejemplo.put("errores", java.util.List.of());
+        return ejemplo;
     }
 }

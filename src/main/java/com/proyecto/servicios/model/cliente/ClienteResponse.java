@@ -40,7 +40,7 @@ public class ClienteResponse {
     @Schema(example = "4187654321")
     private Long telefonoAlternativo;
 
-    private DomicilioRequest domicilio;
+    private DomicilioResponse domicilio;
     private String ocupacion;
     private String empresa;
 

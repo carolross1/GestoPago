@@ -2,6 +2,7 @@ package com.proyecto.servicios.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.proyecto.servicios.entity.cliente.Sesion;
+import com.proyecto.servicios.model.comun.RespuestaApi;
 import com.proyecto.servicios.repositorys.cliente.SesionRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -16,8 +17,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.Collections;
 import java.util.Optional;
 
 /**
@@ -65,20 +65,20 @@ public class SesionActivaFilter extends OncePerRequestFilter {
 
         String header = request.getHeader("Authorization");
         if (header == null || !header.startsWith("Bearer ")) {
-            rechazar(response, "Falta el token de autenticacion");
+            rechazar(request, response, "Falta el token de autenticacion");
             return;
         }
 
         String token = header.substring(7);
 
         if (!jwtUtil.esValido(token)) {
-            rechazar(response, "Token invalido o expirado, inicia sesion nuevamente");
+            rechazar(request, response, "Token invalido o expirado, inicia sesion nuevamente");
             return;
         }
 
         Optional<Sesion> sesionOpt = sesionRepository.findByToken(token);
         if (sesionOpt.isEmpty() || !Boolean.TRUE.equals(sesionOpt.get().getActiva())) {
-            rechazar(response, "Sesion invalida, inicia sesion nuevamente");
+            rechazar(request, response, "Sesion invalida, inicia sesion nuevamente");
             return;
         }
 
@@ -89,7 +89,7 @@ public class SesionActivaFilter extends OncePerRequestFilter {
             sesion.setActiva(false);
             sesionRepository.save(sesion);
             log.info("Sesion marcada como inactiva por {} minutos sin actividad", minutosInactivo);
-            rechazar(response, "Sesion expirada por inactividad, inicia sesion nuevamente");
+            rechazar(request, response, "Sesion expirada por inactividad, inicia sesion nuevamente");
             return;
         }
 
@@ -100,12 +100,17 @@ public class SesionActivaFilter extends OncePerRequestFilter {
         chain.doFilter(request, response);
     }
 
-    private void rechazar(HttpServletResponse response, String mensaje) throws IOException {
+    /**
+     * El filtro corre ANTES de los controladores, asi que el
+     * @RestControllerAdvice no lo alcanza: aqui se arma directamente la
+     * misma estructura RespuestaApi que usa el resto de la API.
+     */
+    private void rechazar(HttpServletRequest request, HttpServletResponse response, String mensaje) throws IOException {
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("codigo", 401);
-        body.put("mensaje", mensaje);
+        response.setCharacterEncoding("UTF-8");
+        RespuestaApi<Void> body = RespuestaApi.error(HttpServletResponse.SC_UNAUTHORIZED, mensaje,
+                request.getRequestURI(), Collections.emptyList());
         response.getWriter().write(objectMapper.writeValueAsString(body));
     }
 }

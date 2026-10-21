@@ -1,6 +1,8 @@
 package com.proyecto.servicios.controller.catalogo;
 
-import com.proyecto.servicios.model.GenericResponse;
+import com.proyecto.servicios.controller.cliente.EjemplosError;
+import com.proyecto.servicios.model.comun.RespuestaApi;
+import com.proyecto.servicios.util.Respuestas;
 import com.proyecto.servicios.model.catalogo.NacionalidadResponse;
 import com.proyecto.servicios.model.catalogo.SincronizacionResponse;
 import com.proyecto.servicios.service.catalogo.NacionalidadService;
@@ -37,8 +39,9 @@ public class CatalogoController {
     @SecurityRequirements
     @ApiResponse(responseCode = "200", description = "Catalogo ordenado por nombre (vacio si aun no se sincroniza)")
     @GetMapping("/nacionalidades")
-    public ResponseEntity<List<NacionalidadResponse>> listarNacionalidades() {
-        return ResponseEntity.ok(nacionalidadService.listar());
+    public ResponseEntity<RespuestaApi<List<NacionalidadResponse>>> listarNacionalidades() {
+        List<NacionalidadResponse> catalogo = nacionalidadService.listar();
+        return Respuestas.ok("Catalogo con " + catalogo.size() + " nacionalidad(es)", catalogo);
     }
 
     @Operation(summary = "Sincronizar nacionalidades desde restcountries.com",
@@ -47,11 +50,11 @@ public class CatalogoController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Catalogo actualizado"),
             @ApiResponse(responseCode = "502", description = "La API de paises fallo o la API key es invalida",
-                    content = @Content(schema = @Schema(implementation = GenericResponse.class),
-                            examples = @ExampleObject(value = "{\"codigo\": 502, \"mensaje\": \"Error al comunicarse con RestCountries\"}")))
+                    content = @Content(schema = @Schema(implementation = RespuestaApi.class),
+                            examples = @ExampleObject(value = EjemplosError.EXTERNO)))
     })
     @PostMapping("/nacionalidades/sincronizar")
-    public ResponseEntity<SincronizacionResponse> sincronizarNacionalidades() {
-        return ResponseEntity.ok(nacionalidadService.sincronizar());
+    public ResponseEntity<RespuestaApi<SincronizacionResponse>> sincronizarNacionalidades() {
+        return Respuestas.ok("Catalogo de nacionalidades sincronizado", nacionalidadService.sincronizar());
     }
 }

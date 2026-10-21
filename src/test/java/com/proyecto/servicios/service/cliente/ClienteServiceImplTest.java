@@ -2,11 +2,16 @@ package com.proyecto.servicios.service.cliente;
 
 import com.proyecto.servicios.entity.cliente.Cliente;
 import com.proyecto.servicios.entity.cliente.Cuenta;
+import com.proyecto.servicios.exception.cliente.ClienteInactivoException;
+import com.proyecto.servicios.exception.cliente.ClienteNoEncontradoException;
 import com.proyecto.servicios.exception.cliente.CorreoDuplicadoException;
 import com.proyecto.servicios.exception.cliente.CurpDuplicadaException;
 import com.proyecto.servicios.exception.cliente.RfcDuplicadoException;
 import com.proyecto.servicios.exception.cliente.ValidacionNegocioException;
+import com.proyecto.servicios.model.cliente.ClienteActualizaRequest;
+import com.proyecto.servicios.model.cliente.ClienteFiltroRequest;
 import com.proyecto.servicios.model.cliente.ClienteRequest;
+import com.proyecto.servicios.model.comun.PaginaResponse;
 import com.proyecto.servicios.model.cliente.ClienteResponse;
 import com.proyecto.servicios.model.cliente.DomicilioRequest;
 import com.proyecto.servicios.repositorys.cliente.ClienteRepository;
@@ -24,7 +29,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -169,5 +179,58 @@ class ClienteServiceImplTest {
         clienteService.darDeBaja(5L);
 
         assertEquals(false, cliente.getActivo());
+    }
+
+    @Test
+    void darDeBaja_clienteYaInactivo_lanzaClienteInactivo() {
+        Cliente cliente = new Cliente();
+        cliente.setId(5L);
+        cliente.setActivo(false);
+        when(clienteRepository.findById(5L)).thenReturn(Optional.of(cliente));
+
+        assertThrows(ClienteInactivoException.class, () -> clienteService.darDeBaja(5L));
+    }
+
+    @Test
+    void actualizar_clienteInactivo_lanzaClienteInactivo() {
+        Cliente cliente = new Cliente();
+        cliente.setId(7L);
+        cliente.setActivo(false);
+        when(clienteRepository.findById(7L)).thenReturn(Optional.of(cliente));
+
+        ClienteActualizaRequest request = new ClienteActualizaRequest();
+        request.setId(7L);
+        request.setEstadoCivil("CASADO");
+
+        assertThrows(ClienteInactivoException.class, () -> clienteService.actualizar(request));
+    }
+
+    @Test
+    void actualizar_clienteInexistente_lanzaNoEncontrado() {
+        when(clienteRepository.findById(99L)).thenReturn(Optional.empty());
+        ClienteActualizaRequest request = new ClienteActualizaRequest();
+        request.setId(99L);
+
+        assertThrows(ClienteNoEncontradoException.class, () -> clienteService.actualizar(request));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void buscar_usaConsultaDinamicaYRegresaPagina() {
+        Cliente cliente = new Cliente();
+        cliente.setId(3L);
+        cliente.setActivo(true);
+        when(clienteRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(cliente), PageRequest.of(0, 10), 1));
+
+        ClienteFiltroRequest filtro = new ClienteFiltroRequest();
+        filtro.setActivo(true);
+        filtro.setNacionalidad("mex");
+
+        PaginaResponse<ClienteResponse> pagina = clienteService.buscar(filtro);
+
+        assertEquals(1, pagina.getTotalElementos());
+        assertEquals(3L, pagina.getContenido().get(0).getId());
+        assertEquals("MEX", filtro.getNacionalidad());
     }
 }

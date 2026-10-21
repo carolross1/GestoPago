@@ -19,9 +19,9 @@ import com.proyecto.servicios.util.CorreoUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 /**
  * Login/registro para el portal del cliente, usando correo y contrasena.
@@ -57,14 +57,14 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    @Transactional
     public void registrar(RegistroLoginRequest request) {
         Cliente cliente = clienteRepository.findByCorreo(CorreoUtil.normalizar(request.getCorreo()))
                 .orElseThrow(CorreoNoEncontradoException::new);
 
-        if (loginRepository.existsByClienteId(cliente.getId())) {
+        // Optional: si ya existe un login para el cliente -> 409
+        loginRepository.findByClienteId(cliente.getId()).ifPresent(existente -> {
             throw new LoginYaRegistradoException("Este correo ya tiene una contrasena registrada, inicia sesion");
-        }
+        });
 
         Login login = new Login();
         login.setClienteId(cliente.getId());
@@ -75,17 +75,16 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    @Transactional
     public LoginResponse login(LoginRequest request) {
         Cliente cliente = clienteRepository.findByCorreo(CorreoUtil.normalizar(request.getCorreo()))
                 .orElseThrow(CorreoNoEncontradoException::new);
 
+        // Optional: debe existir el login (404) y la contrasena debe coincidir (401)
         Login login = loginRepository.findByClienteId(cliente.getId())
                 .orElseThrow(LoginNoRegistradoException::new);
-
-        if (!passwordEncoder.matches(request.getPassword(), login.getPasswordHash())) {
-            throw new CredencialesInvalidasException("La contrasena es incorrecta");
-        }
+        Optional.of(login)
+                .filter(l -> passwordEncoder.matches(request.getPassword(), l.getPasswordHash()))
+                .orElseThrow(() -> new CredencialesInvalidasException("La contrasena es incorrecta"));
 
         String token = jwtUtil.generarToken(cliente.getId());
 

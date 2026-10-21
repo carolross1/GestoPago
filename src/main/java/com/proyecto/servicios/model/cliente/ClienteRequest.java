@@ -6,15 +6,23 @@ import com.fasterxml.jackson.annotation.OptBoolean;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
+import com.proyecto.servicios.model.comun.SolicitudEstricta;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import static com.proyecto.servicios.model.cliente.ValidacionPatrones.*;
 
+/**
+ * Alta de cliente. No incluye id, activo, fechaRegistro ni numeroCuenta:
+ * esos los asigna el servidor. Si el JSON los trae, la solicitud se
+ * rechaza con 400 (ver SolicitudEstricta).
+ */
 @Data
-public class ClienteRequest {
+@EqualsAndHashCode(callSuper = false)
+public class ClienteRequest extends SolicitudEstricta {
 
     @NotBlank
     @Size(min = 2, max = 50, message = "Debe tener entre 2 y 50 caracteres")
