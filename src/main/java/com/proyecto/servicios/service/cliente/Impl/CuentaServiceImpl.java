@@ -2,9 +2,13 @@ package com.proyecto.servicios.service.cliente.Impl;
 
 import com.proyecto.servicios.entity.cliente.Cuenta;
 import com.proyecto.servicios.entity.cliente.Saldo;
-import com.proyecto.servicios.exception.cliente.CuentaNoEncontradaException;
+import com.proyecto.servicios.model.cliente.CuentaFiltroRequest;
 import com.proyecto.servicios.model.cliente.CuentaResponse;
-import com.proyecto.servicios.model.cliente.SaldoResponse;
+import com.proyecto.servicios.model.comun.PaginaResponse;
+import com.proyecto.servicios.repositorys.cliente.CuentaSpecifications;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import com.proyecto.servicios.repositorys.cliente.CuentaRepository;
 import com.proyecto.servicios.repositorys.cliente.SaldoRepository;
 import com.proyecto.servicios.service.cliente.CuentaService;
@@ -16,8 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.security.SecureRandom;
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -39,8 +41,11 @@ public class CuentaServiceImpl implements CuentaService {
         this.saldoRepository = saldoRepository;
     }
 
+    /**
+     * Sin @Transactional propio: siempre se invoca desde ClienteServiceImpl.crear,
+     * cuya transaccion cubre tambien la cuenta y el saldo de apertura.
+     */
     @Override
-    @Transactional
     public Cuenta crearCuentaParaCliente(Long clienteId) {
         BigDecimal saldoApertura = dosDecimales(saldoInicial);
 
@@ -62,47 +67,21 @@ public class CuentaServiceImpl implements CuentaService {
     }
 
     @Override
-    public CuentaResponse obtenerPorNumeroCuenta(String numeroCuenta) {
-        Cuenta cuenta = buscarPorNumeroCuenta(numeroCuenta);
-        return construirResponse(cuenta);
+    public PaginaResponse<CuentaResponse> buscar(CuentaFiltroRequest filtro) {
+        PageRequest pagina = PageRequest.of(filtro.getPagina(), filtro.getTamano(), Sort.by("id"));
+        Page<CuentaResponse> resultado = cuentaRepository
+                .findAll(CuentaSpecifications.conFiltros(filtro), pagina)
+                .map(this::construirResponse);
+        return new PaginaResponse<>(resultado);
     }
 
+    /** Optional: si el cliente tiene cuenta se desactiva; si no tiene, no pasa nada. */
     @Override
-    public SaldoResponse obtenerSaldo(String numeroCuenta) {
-        Cuenta cuenta = buscarPorNumeroCuenta(numeroCuenta);
-        Saldo ultimo = saldoRepository.findFirstByCuentaIdOrderByFechaDesc(cuenta.getId())
-                .orElseThrow(() -> new CuentaNoEncontradaException("La cuenta no tiene movimientos de saldo"));
-
-        SaldoResponse response = new SaldoResponse();
-        response.setNumeroCuenta(numeroCuenta);
-        response.setSaldoActual(dosDecimales(ultimo.getSaldoResultante()));
-        if (ultimo.getFecha() != null) {
-            response.setFechaUltimoMovimiento(ultimo.getFecha().toLocalDate());
-            response.setHoraUltimoMovimiento(ultimo.getFecha().toLocalTime().withNano(0));
-        }
-        return response;
-    }
-
-    @Override
-    public List<CuentaResponse> listarActivas() {
-        return cuentaRepository.findByEstatus(ESTATUS_ACTIVA).stream()
-                .map(this::construirResponse)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional
     public void desactivarCuentaDeCliente(Long clienteId) {
         cuentaRepository.findByClienteId(clienteId).ifPresent(cuenta -> {
             cuenta.setEstatus(ESTATUS_INACTIVA);
             cuentaRepository.save(cuenta);
         });
-    }
-
-    private Cuenta buscarPorNumeroCuenta(String numeroCuenta) {
-        return cuentaRepository.findByNumeroCuenta(numeroCuenta)
-                .orElseThrow(() -> new CuentaNoEncontradaException(
-                        "No se encontro una cuenta con el numero proporcionado"));
     }
 
     private CuentaResponse construirResponse(Cuenta cuenta) {

@@ -1,20 +1,16 @@
 package com.proyecto.servicios.service.cliente;
 
 import com.proyecto.servicios.entity.cliente.Cuenta;
+import com.proyecto.servicios.model.cliente.CuentaFiltroRequest;
 import com.proyecto.servicios.model.cliente.CuentaResponse;
-import com.proyecto.servicios.model.cliente.SaldoResponse;
-
-import java.util.List;
+import com.proyecto.servicios.model.comun.PaginaResponse;
 
 public interface CuentaService {
 
     Cuenta crearCuentaParaCliente(Long clienteId);
 
-    CuentaResponse obtenerPorNumeroCuenta(String numeroCuenta);
-
-    SaldoResponse obtenerSaldo(String numeroCuenta);
-
-    List<CuentaResponse> listarActivas();
+    /** Busqueda dinamica: combina los filtros que vengan llenos. */
+    PaginaResponse<CuentaResponse> buscar(CuentaFiltroRequest filtro);
 
     void desactivarCuentaDeCliente(Long clienteId);
 }

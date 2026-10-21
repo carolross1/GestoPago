@@ -2,16 +2,15 @@ package com.proyecto.servicios.repositorys.cliente;
 
 import com.proyecto.servicios.entity.cliente.Cliente;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
-import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 
-public interface ClienteRepository extends JpaRepository<Cliente, Long> {
-
-    Optional<Cliente> findByCurp(String curp);
-
-    Optional<Cliente> findByRfc(String rfc);
+/**
+ * JpaSpecificationExecutor habilita las consultas dinamicas
+ * (ver ClienteSpecifications) que usa el endpoint unico de busqueda.
+ */
+public interface ClienteRepository extends JpaRepository<Cliente, Long>, JpaSpecificationExecutor<Cliente> {
 
     Optional<Cliente> findByCorreo(String correo);
 
@@ -21,7 +20,4 @@ public interface ClienteRepository extends JpaRepository<Cliente, Long> {
 
     boolean existsByCorreo(String correo);
 
-    List<Cliente> findByActivoTrue();
-
-    List<Cliente> findByFechaRegistroBetween(LocalDateTime desde, LocalDateTime hasta);
 }

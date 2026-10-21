@@ -2,12 +2,15 @@ package com.proyecto.servicios.model.cliente;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.*;
+import com.proyecto.servicios.model.comun.SolicitudEstricta;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import static com.proyecto.servicios.model.cliente.ValidacionPatrones.*;
 
 @Data
-public class DomicilioRequest {
+@EqualsAndHashCode(callSuper = false)
+public class DomicilioRequest extends SolicitudEstricta {
 
     @NotBlank
     @Size(max = 100, message = "Debe tener maximo 100 caracteres")

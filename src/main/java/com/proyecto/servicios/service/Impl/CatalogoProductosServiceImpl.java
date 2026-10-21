@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -66,6 +67,7 @@ public class CatalogoProductosServiceImpl implements CatalogoProductosService {
 
             Map<Integer, List<ProductoDTO>> agrupados = productos.stream()
                     .collect(Collectors.groupingBy(ProductoDTO::getTipoFront));
+            ordenarPorPrecioDescendente(agrupados);
 
             CatalogoAgrupadoDTO catalogo = new CatalogoAgrupadoDTO();
             catalogo.setFechaActualizacion(ahora);
@@ -125,6 +127,7 @@ public class CatalogoProductosServiceImpl implements CatalogoProductosService {
         Map<Integer, List<ProductoDTO>> agrupados = entidades.stream()
                 .map(this::toDTO)
                 .collect(Collectors.groupingBy(ProductoDTO::getTipoFront));
+        ordenarPorPrecioDescendente(agrupados);
 
         LocalDateTime fechaActualizacion = entidades.get(0).getFechaActualizacion();
 
@@ -168,5 +171,26 @@ public class CatalogoProductosServiceImpl implements CatalogoProductosService {
         dto.setTipoReferencia(entidad.getTipoReferencia());
         dto.setLegend(entidad.getLegend());
         return dto;
+    }
+
+    /**
+     * Ordena cada grupo de tipoFront de mayor a menor por precio, tal
+     * como lo pide el catalogo. El precio viene como texto desde
+     * GestoPago (ej. "100.0"), por eso se parsea a double solo para
+     * comparar; si algun valor no es parseable se trata como 0 en vez
+     * de tronar la sincronizacion completa.
+     */
+    private void ordenarPorPrecioDescendente(Map<Integer, List<ProductoDTO>> agrupados) {
+        for (List<ProductoDTO> productos : agrupados.values()) {
+            productos.sort(Comparator.comparingDouble(this::precioComoDouble).reversed());
+        }
+    }
+
+    private double precioComoDouble(ProductoDTO producto) {
+        try {
+            return Double.parseDouble(producto.getPrecio());
+        } catch (NumberFormatException | NullPointerException e) {
+            return 0.0;
+        }
     }
 }

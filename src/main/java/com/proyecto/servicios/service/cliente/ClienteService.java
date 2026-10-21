@@ -1,33 +1,21 @@
 package com.proyecto.servicios.service.cliente;
 
 import com.proyecto.servicios.model.cliente.ClienteActualizaRequest;
+import com.proyecto.servicios.model.cliente.ClienteFiltroRequest;
 import com.proyecto.servicios.model.cliente.ClienteRequest;
 import com.proyecto.servicios.model.cliente.ClienteResponse;
-
-import java.time.LocalDateTime;
-import java.util.List;
+import com.proyecto.servicios.model.comun.PaginaResponse;
 
 public interface ClienteService {
 
     ClienteResponse crear(ClienteRequest request);
 
-    ClienteResponse actualizar(Long id, ClienteActualizaRequest request);
+    /** El id del cliente viene dentro del request (no en la URL). */
+    ClienteResponse actualizar(ClienteActualizaRequest request);
 
-    ClienteResponse obtenerPorId(Long id);
+    /** Busqueda dinamica por cualquier combinacion de filtros. */
+    PaginaResponse<ClienteResponse> buscar(ClienteFiltroRequest filtro);
 
-    List<ClienteResponse> listarTodos();
-
-    ClienteResponse obtenerPorCurp(String curp);
-
-    ClienteResponse obtenerPorRfc(String rfc);
-
-    ClienteResponse obtenerPorCorreo(String correo);
-
-    List<ClienteResponse> listarActivos();
-
-    List<ClienteResponse> listarPorRangoFechas(LocalDateTime desde, LocalDateTime hasta);
-
-    void darDeBaja(Long id);
-
-    ClienteResponse obtenerPorNumeroCuenta(String numeroCuenta);
+    /** Baja logica; regresa el cliente ya con activo=false. */
+    ClienteResponse darDeBaja(Long id);
 }

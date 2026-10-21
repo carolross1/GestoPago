@@ -65,7 +65,7 @@ class AuthServiceImplTest {
         request.setPassword("password123");
 
         when(clienteRepository.findByCorreo(cliente.getCorreo())).thenReturn(Optional.of(cliente));
-        when(loginRepository.existsByClienteId(1L)).thenReturn(false);
+        when(loginRepository.findByClienteId(1L)).thenReturn(Optional.empty());
         when(passwordEncoder.encode("password123")).thenReturn("hash-generado");
 
         authService.registrar(request);
@@ -91,7 +91,7 @@ class AuthServiceImplTest {
         request.setPassword("password123");
 
         when(clienteRepository.findByCorreo(cliente.getCorreo())).thenReturn(Optional.of(cliente));
-        when(loginRepository.existsByClienteId(1L)).thenReturn(true);
+        when(loginRepository.findByClienteId(1L)).thenReturn(Optional.of(new Login()));
 
         assertThrows(LoginYaRegistradoException.class, () -> authService.registrar(request));
     }

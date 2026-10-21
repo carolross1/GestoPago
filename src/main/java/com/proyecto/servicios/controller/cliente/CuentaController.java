@@ -1,26 +1,29 @@
 package com.proyecto.servicios.controller.cliente;
 
-import com.proyecto.servicios.model.GenericResponse;
+import com.proyecto.servicios.model.cliente.CuentaFiltroRequest;
 import com.proyecto.servicios.model.cliente.CuentaResponse;
-import com.proyecto.servicios.model.cliente.SaldoResponse;
+import com.proyecto.servicios.model.comun.PaginaResponse;
+import com.proyecto.servicios.model.comun.RespuestaApi;
 import com.proyecto.servicios.service.cliente.CuentaService;
+import com.proyecto.servicios.util.Respuestas;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
-@Tag(name = "Cuentas", description = "Consulta de cuentas y saldos")
+/**
+ * Consulta de cuentas con un unico endpoint de busqueda y filtros en el
+ * cuerpo. El 401 lo agrega OpenApi.java a todos los endpoints con token.
+ */
+@Tag(name = "Cuentas", description = "Consulta de cuentas y su saldo actual")
 @RestController
 @RequestMapping("/cuentas")
 public class CuentaController {
@@ -31,36 +34,18 @@ public class CuentaController {
         this.cuentaService = cuentaService;
     }
 
-    @Operation(summary = "Consultar cuenta por numero")
+    @Operation(summary = "Buscar cuentas (endpoint unico de consulta)",
+            description = "Filtros opcionales y combinables: numeroCuenta, clienteId, estatus. "
+                    + "Cada cuenta incluye su saldo actual con 2 decimales.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Cuenta encontrada"),
-            @ApiResponse(responseCode = "404", description = "No existe una cuenta con ese numero",
-                    content = @Content(schema = @Schema(implementation = GenericResponse.class),
-                            examples = @ExampleObject(value = EjemplosError.CUENTA_NO_ENCONTRADA)))
+            @ApiResponse(responseCode = "200", description = "Pagina de resultados (puede venir vacia)"),
+            @ApiResponse(responseCode = "400", description = "Algun filtro tiene un formato invalido",
+                    content = @Content(schema = @Schema(implementation = RespuestaApi.class)))
     })
-    @GetMapping("/{numeroCuenta}")
-    public ResponseEntity<CuentaResponse> obtenerPorNumeroCuenta(
-            @Parameter(example = "1234567890") @PathVariable String numeroCuenta) {
-        return ResponseEntity.ok(cuentaService.obtenerPorNumeroCuenta(numeroCuenta));
-    }
-
-    @Operation(summary = "Consultar saldo actual de una cuenta")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Saldo actual con 2 decimales"),
-            @ApiResponse(responseCode = "404", description = "No existe una cuenta con ese numero",
-                    content = @Content(schema = @Schema(implementation = GenericResponse.class),
-                            examples = @ExampleObject(value = EjemplosError.CUENTA_NO_ENCONTRADA)))
-    })
-    @GetMapping("/{numeroCuenta}/saldo")
-    public ResponseEntity<SaldoResponse> obtenerSaldo(
-            @Parameter(example = "1234567890") @PathVariable String numeroCuenta) {
-        return ResponseEntity.ok(cuentaService.obtenerSaldo(numeroCuenta));
-    }
-
-    @Operation(summary = "Listar cuentas activas")
-    @ApiResponse(responseCode = "200", description = "Lista de cuentas activas (puede venir vacia)")
-    @GetMapping("/activas")
-    public ResponseEntity<List<CuentaResponse>> listarActivas() {
-        return ResponseEntity.ok(cuentaService.listarActivas());
+    @PostMapping("/buscar")
+    public ResponseEntity<RespuestaApi<PaginaResponse<CuentaResponse>>> buscar(
+            @Valid @RequestBody CuentaFiltroRequest filtro) {
+        PaginaResponse<CuentaResponse> pagina = cuentaService.buscar(filtro);
+        return Respuestas.ok("Se encontraron " + pagina.getTotalElementos() + " cuenta(s)", pagina);
     }
 }

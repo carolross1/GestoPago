@@ -32,7 +32,7 @@ public class App implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        //	displayInfo(context.getBean(BuildProperties.class));
+        // 	displayInfo(context.getBean(BuildProperties.class));
     }
 
     private static void displayInfo(BuildProperties buildProperties) {

@@ -5,13 +5,16 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import com.proyecto.servicios.model.comun.SolicitudEstricta;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * Inicio de sesion del portal con correo y contrasena.
  */
 @Data
-public class LoginRequest {
+@EqualsAndHashCode(callSuper = false)
+public class LoginRequest extends SolicitudEstricta {
 
     @NotBlank(message = "El correo es obligatorio")
     @Email(message = "El correo no tiene un formato valido")

@@ -1,13 +1,15 @@
 package com.proyecto.servicios.controller.cliente;
 
-import com.proyecto.servicios.exception.cliente.ValidacionNegocioException;
-import com.proyecto.servicios.model.GenericResponse;
 import com.proyecto.servicios.model.cliente.ClienteActualizaRequest;
+import com.proyecto.servicios.model.cliente.ClienteFiltroRequest;
+import com.proyecto.servicios.model.cliente.ClienteIdRequest;
 import com.proyecto.servicios.model.cliente.ClienteRequest;
 import com.proyecto.servicios.model.cliente.ClienteResponse;
+import com.proyecto.servicios.model.comun.PaginaResponse;
+import com.proyecto.servicios.model.comun.RespuestaApi;
 import com.proyecto.servicios.service.cliente.ClienteService;
+import com.proyecto.servicios.util.Respuestas;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -16,22 +18,30 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.List;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Las respuestas de error de cada endpoint se documentan con @ApiResponses
- * para que Swagger muestre su descripcion y un ejemplo del cuerpo en vez
- * de "Undocumented". El 401 (falta token / sesion expirada) lo agrega
- * OpenApi.java automaticamente a todos los endpoints que exigen token.
+ * Administracion de clientes (usuarios del sistema).
+ *
+ * Reglas que cumple este controlador:
+ * - Sin @PathVariable ni @RequestParam: todo llega en el cuerpo (@RequestBody).
+ * - @Valid en cada Request DTO; no hay validaciones manuales ni try-catch:
+ *   los errores los procesa GlobalExceptionHandler.
+ * - Recibe Request DTO y regresa Response DTO dentro de RespuestaApi
+ *   (nunca entidades JPA).
+ * - Un unico endpoint de busqueda (POST /clientes/buscar) con filtros
+ *   combinables, en lugar de un endpoint por campo.
+ *
+ * El 401 (falta token / sesion expirada) lo agrega OpenApi.java a todos
+ * los endpoints que exigen token.
  */
-@Tag(name = "Clientes", description = "Alta, consulta, actualizacion y baja de clientes")
+@Tag(name = "Clientes", description = "Alta, busqueda, actualizacion y baja de clientes")
 @RestController
 @RequestMapping("/clientes")
 public class ClienteController {
@@ -43,140 +53,87 @@ public class ClienteController {
     }
 
     @Operation(summary = "Alta de cliente (no requiere token)",
-            description = "Crea el cliente, su domicilio y una cuenta con saldo inicial.")
+            description = "Crea el cliente, su domicilio y una cuenta con saldo inicial. "
+                    + "id, activo, fechaRegistro y numeroCuenta los asigna el servidor y no se pueden enviar.")
     @SecurityRequirements
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Cliente creado"),
-            @ApiResponse(responseCode = "400", description = "Algun campo no cumple las validaciones",
-                    content = @Content(schema = @Schema(implementation = GenericResponse.class), examples = {
-                            @ExampleObject(name = "Campo invalido", value = EjemplosError.VALIDACION),
-                            @ExampleObject(name = "Fecha invalida", value = EjemplosError.FECHA),
-                            @ExampleObject(name = "Menor de edad", value = EjemplosError.MENOR_EDAD)})),
+            @ApiResponse(responseCode = "400", description = "Campos invalidos, con formato incorrecto o no permitidos",
+                    content = @Content(schema = @Schema(implementation = RespuestaApi.class), examples = {
+                            @ExampleObject(name = "Campos invalidos", value = EjemplosError.VALIDACION),
+                            @ExampleObject(name = "Campo no permitido", value = EjemplosError.CAMPO_PROHIBIDO),
+                            @ExampleObject(name = "Fecha invalida", value = EjemplosError.FECHA)})),
             @ApiResponse(responseCode = "409", description = "Ya existe un cliente con esa CURP, RFC o correo",
-                    content = @Content(schema = @Schema(implementation = GenericResponse.class), examples = {
+                    content = @Content(schema = @Schema(implementation = RespuestaApi.class), examples = {
                             @ExampleObject(name = "CURP duplicada", value = EjemplosError.CURP_DUPLICADA),
-                            @ExampleObject(name = "Correo duplicado", value = EjemplosError.CORREO_DUPLICADO)}))
+                            @ExampleObject(name = "Correo duplicado", value = EjemplosError.CORREO_DUPLICADO)})),
+            @ApiResponse(responseCode = "422", description = "No cumple una regla de negocio",
+                    content = @Content(schema = @Schema(implementation = RespuestaApi.class), examples = {
+                            @ExampleObject(name = "Menor de edad", value = EjemplosError.MENOR_EDAD),
+                            @ExampleObject(name = "Nacionalidad fuera de catalogo", value = EjemplosError.NACIONALIDAD)}))
     })
     @PostMapping
-    public ResponseEntity<ClienteResponse> crear(@Valid @RequestBody ClienteRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(clienteService.crear(request));
+    public ResponseEntity<RespuestaApi<ClienteResponse>> crear(@Valid @RequestBody ClienteRequest request) {
+        return Respuestas.creado("Cliente registrado correctamente", clienteService.crear(request));
     }
 
-    @Operation(summary = "Listar todos los clientes")
-    @ApiResponse(responseCode = "200", description = "Lista de clientes (puede venir vacia)")
-    @GetMapping
-    public ResponseEntity<List<ClienteResponse>> listarTodos() {
-        return ResponseEntity.ok(clienteService.listarTodos());
-    }
-
-    @Operation(summary = "Consultar cliente por id")
+    @Operation(summary = "Buscar clientes (endpoint unico de consulta)",
+            description = "Todos los filtros son opcionales y se combinan con AND. "
+                    + "Ejemplos: {} = todos; {\"id\": 3}; {\"curp\": \"...\"}; "
+                    + "{\"activo\": true, \"nacionalidad\": \"MEX\", \"fechaRegistroDesde\": \"2026/10/01\"}. "
+                    + "Los textos se comparan exactos porque se guardan cifrados. Resultado paginado.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Cliente encontrado"),
-            @ApiResponse(responseCode = "404", description = "No existe un cliente con ese id",
-                    content = @Content(schema = @Schema(implementation = GenericResponse.class),
-                            examples = @ExampleObject(value = EjemplosError.CLIENTE_NO_ENCONTRADO)))
+            @ApiResponse(responseCode = "200", description = "Pagina de resultados (puede venir vacia)"),
+            @ApiResponse(responseCode = "400", description = "Algun filtro tiene un formato invalido o un rango incoherente",
+                    content = @Content(schema = @Schema(implementation = RespuestaApi.class),
+                            examples = @ExampleObject(value = EjemplosError.RANGO)))
     })
-    @GetMapping("/{id}")
-    public ResponseEntity<ClienteResponse> obtenerPorId(@PathVariable Long id) {
-        return ResponseEntity.ok(clienteService.obtenerPorId(id));
+    @PostMapping("/buscar")
+    public ResponseEntity<RespuestaApi<PaginaResponse<ClienteResponse>>> buscar(
+            @Valid @RequestBody ClienteFiltroRequest filtro) {
+        PaginaResponse<ClienteResponse> pagina = clienteService.buscar(filtro);
+        return Respuestas.ok("Se encontraron " + pagina.getTotalElementos() + " cliente(s)", pagina);
     }
 
     @Operation(summary = "Actualizar cliente",
-            description = "Solo se modifican los campos enviados. CURP, RFC y numero de cuenta no se pueden cambiar.")
+            description = "El id va en el cuerpo junto con los campos a modificar; solo cambian los campos enviados. "
+                    + "CURP, RFC, fecha de nacimiento, activo, fechaRegistro y numeroCuenta no se pueden modificar.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Cliente actualizado"),
-            @ApiResponse(responseCode = "400", description = "Algun campo no cumple las validaciones",
-                    content = @Content(schema = @Schema(implementation = GenericResponse.class),
-                            examples = @ExampleObject(value = EjemplosError.VALIDACION))),
+            @ApiResponse(responseCode = "400", description = "Falta el id, hay campos invalidos o no permitidos",
+                    content = @Content(schema = @Schema(implementation = RespuestaApi.class), examples = {
+                            @ExampleObject(name = "Campos invalidos", value = EjemplosError.VALIDACION),
+                            @ExampleObject(name = "Campo no permitido", value = EjemplosError.CAMPO_PROHIBIDO)})),
             @ApiResponse(responseCode = "404", description = "No existe un cliente con ese id",
-                    content = @Content(schema = @Schema(implementation = GenericResponse.class),
+                    content = @Content(schema = @Schema(implementation = RespuestaApi.class),
                             examples = @ExampleObject(value = EjemplosError.CLIENTE_NO_ENCONTRADO))),
-            @ApiResponse(responseCode = "409", description = "El nuevo correo ya lo usa otro cliente",
-                    content = @Content(schema = @Schema(implementation = GenericResponse.class),
-                            examples = @ExampleObject(value = EjemplosError.CORREO_DUPLICADO)))
+            @ApiResponse(responseCode = "409", description = "Correo usado por otro cliente o cliente dado de baja",
+                    content = @Content(schema = @Schema(implementation = RespuestaApi.class), examples = {
+                            @ExampleObject(name = "Correo duplicado", value = EjemplosError.CORREO_DUPLICADO),
+                            @ExampleObject(name = "Cliente dado de baja", value = EjemplosError.CLIENTE_INACTIVO)})),
+            @ApiResponse(responseCode = "422", description = "Nacionalidad fuera de catalogo",
+                    content = @Content(schema = @Schema(implementation = RespuestaApi.class),
+                            examples = @ExampleObject(value = EjemplosError.NACIONALIDAD)))
     })
-    @PutMapping("/{id}")
-    public ResponseEntity<ClienteResponse> actualizar(@PathVariable Long id,
-                                                        @Valid @RequestBody ClienteActualizaRequest request) {
-        return ResponseEntity.ok(clienteService.actualizar(id, request));
+    @PutMapping
+    public ResponseEntity<RespuestaApi<ClienteResponse>> actualizar(@Valid @RequestBody ClienteActualizaRequest request) {
+        return Respuestas.ok("Cliente actualizado correctamente", clienteService.actualizar(request));
     }
 
-    @Operation(summary = "Dar de baja un cliente (baja logica)", description = "Tambien desactiva su cuenta.")
+    @Operation(summary = "Dar de baja un cliente (baja logica)",
+            description = "Cuerpo: {\"id\": 3}. Marca al cliente como inactivo y desactiva su cuenta; no borra datos.")
     @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Cliente dado de baja"),
+            @ApiResponse(responseCode = "200", description = "Cliente dado de baja; regresa el cliente con activo=false"),
+            @ApiResponse(responseCode = "400", description = "Falta el id o no es valido",
+                    content = @Content(schema = @Schema(implementation = RespuestaApi.class))),
             @ApiResponse(responseCode = "404", description = "No existe un cliente con ese id",
-                    content = @Content(schema = @Schema(implementation = GenericResponse.class),
-                            examples = @ExampleObject(value = EjemplosError.CLIENTE_NO_ENCONTRADO)))
+                    content = @Content(schema = @Schema(implementation = RespuestaApi.class),
+                            examples = @ExampleObject(value = EjemplosError.CLIENTE_NO_ENCONTRADO))),
+            @ApiResponse(responseCode = "409", description = "El cliente ya estaba dado de baja",
+                    content = @Content(schema = @Schema(implementation = RespuestaApi.class)))
     })
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> darDeBaja(@PathVariable Long id) {
-        clienteService.darDeBaja(id);
-        return ResponseEntity.noContent().build();
-    }
-
-    @Operation(summary = "Consultar cliente por CURP")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Cliente encontrado"),
-            @ApiResponse(responseCode = "404", description = "No existe un cliente con esa CURP",
-                    content = @Content(schema = @Schema(implementation = GenericResponse.class)))
-    })
-    @GetMapping("/curp/{curp}")
-    public ResponseEntity<ClienteResponse> obtenerPorCurp(
-            @Parameter(example = "PELJ990131HGTRPN09") @PathVariable String curp) {
-        return ResponseEntity.ok(clienteService.obtenerPorCurp(curp));
-    }
-
-    @Operation(summary = "Consultar cliente por RFC")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Cliente encontrado"),
-            @ApiResponse(responseCode = "404", description = "No existe un cliente con ese RFC",
-                    content = @Content(schema = @Schema(implementation = GenericResponse.class)))
-    })
-    @GetMapping("/rfc/{rfc}")
-    public ResponseEntity<ClienteResponse> obtenerPorRfc(
-            @Parameter(example = "PELJ990131AB1") @PathVariable String rfc) {
-        return ResponseEntity.ok(clienteService.obtenerPorRfc(rfc));
-    }
-
-    @Operation(summary = "Consultar cliente por correo")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Cliente encontrado"),
-            @ApiResponse(responseCode = "404", description = "No existe un cliente con ese correo",
-                    content = @Content(schema = @Schema(implementation = GenericResponse.class)))
-    })
-    @GetMapping("/correo/{correo}")
-    public ResponseEntity<ClienteResponse> obtenerPorCorreo(
-            @Parameter(example = "juan.perez@correo.com") @PathVariable String correo) {
-        return ResponseEntity.ok(clienteService.obtenerPorCorreo(correo));
-    }
-
-    @Operation(summary = "Listar clientes activos")
-    @ApiResponse(responseCode = "200", description = "Lista de clientes activos (puede venir vacia)")
-    @GetMapping("/activos")
-    public ResponseEntity<List<ClienteResponse>> listarActivos() {
-        return ResponseEntity.ok(clienteService.listarActivos());
-    }
-
-    /**
-     * Clientes registrados entre dos fechas (inclusive), formato yyyy/MM/dd.
-     * Ejemplo: /clientes/rango-fechas?desde=2026/01/01&hasta=2026/12/31
-     */
-    @Operation(summary = "Listar clientes registrados entre dos fechas (inclusive)")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Lista de clientes (puede venir vacia)"),
-            @ApiResponse(responseCode = "400", description = "Fechas con formato invalido o 'desde' posterior a 'hasta'",
-                    content = @Content(schema = @Schema(implementation = GenericResponse.class),
-                            examples = @ExampleObject(value = EjemplosError.RANGO)))
-    })
-    @GetMapping("/rango-fechas")
-    public ResponseEntity<List<ClienteResponse>> listarPorRangoFechas(
-            @Parameter(description = "Formato yyyy/MM/dd", example = "2026/01/01")
-            @RequestParam @DateTimeFormat(pattern = "yyyy/MM/dd") LocalDate desde,
-            @Parameter(description = "Formato yyyy/MM/dd", example = "2026/12/31")
-            @RequestParam @DateTimeFormat(pattern = "yyyy/MM/dd") LocalDate hasta) {
-        if (desde.isAfter(hasta)) {
-            throw new ValidacionNegocioException("La fecha 'desde' no puede ser posterior a la fecha 'hasta'");
-        }
-        return ResponseEntity.ok(clienteService.listarPorRangoFechas(desde.atStartOfDay(), hasta.atTime(LocalTime.MAX)));
+    @PatchMapping("/baja")
+    public ResponseEntity<RespuestaApi<ClienteResponse>> darDeBaja(@Valid @RequestBody ClienteIdRequest request) {
+        return Respuestas.ok("Cliente dado de baja correctamente", clienteService.darDeBaja(request.getId()));
     }
 }

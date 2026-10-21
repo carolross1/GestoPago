@@ -82,11 +82,44 @@ Al arrancar:
    /clientes/** y /cuentas/**.
 
 ### Endpoints
-- POST /clientes, GET /clientes, GET /clientes/{id}, PUT /clientes/{id}, DELETE /clientes/{id}
-- GET /clientes/curp/{curp}, /clientes/rfc/{rfc}, /clientes/correo/{correo}
-- GET /clientes/activos, GET /clientes/rango-fechas?desde=2026/01/01\&hasta=2026/12/31
-- GET /cuentas/{numeroCuenta}, GET /cuentas/{numeroCuenta}/saldo, GET /cuentas/activas
-- POST /auth/registro, POST /auth/login
+## API de administracion de clientes
+
+Reglas de diseno:
+- Capas separadas: Controller -> Service -> Repository (Spring Data JPA) -> Entity.
+  Los controladores reciben Request DTO y regresan Response DTO; nunca entidades.
+- Sin @PathVariable ni @RequestParam: todos los datos y criterios llegan en el
+  cuerpo JSON (@RequestBody) y se validan con @Valid + Bean Validation.
+- Un solo endpoint de busqueda con filtros combinables (Specifications de JPA).
+- Un solo @RestControllerAdvice (GlobalExceptionHandler) con un @ExceptionHandler
+  por tipo de error; los controladores no tienen try-catch ni validaciones manuales.
+- Campos controlados por el servidor (id, activo, fechaRegistro, numeroCuenta)
+  y datos inmutables (CURP, RFC) no existen en los Request DTO: si el JSON los
+  trae, la solicitud se rechaza con 400 (SolicitudEstricta).
+
+Endpoints:
+- POST  /clientes                 alta (sin token) -> 201
+- POST  /clientes/buscar          busqueda unica con filtros combinables -> 200
+- PUT   /clientes                 {"id": 3, ...campos a modificar} -> 200
+- PATCH /clientes/baja            {"id": 3} baja logica -> 200
+- POST  /cuentas/buscar           {"numeroCuenta" | "clienteId" | "estatus"} -> 200
+- POST  /auth/registro, POST /auth/login
+- GET   /catalogos/nacionalidades, POST /catalogos/nacionalidades/sincronizar
+
+Filtros de POST /clientes/buscar (todos opcionales, se combinan con AND):
+id, nombre, apellidoPaterno, apellidoMaterno, curp, rfc, correo, sexo,
+estadoCivil, nacionalidad, activo, numeroCuenta, fechaRegistroDesde,
+fechaRegistroHasta, ingresoMinimo, ingresoMaximo, pagina, tamano.
+Los textos se comparan exactos porque se guardan cifrados.
+
+Estructura UNICA de respuesta (exito y error):
+{"exito": true, "codigo": 200, "mensaje": "...", "fecha": "2026/10/16",
+ "hora": "18:30:05", "ruta": "/clientes/buscar", "datos": {...}, "errores": []}
+
+Codigos: 200/201 exito, 400 entrada invalida, 401 sin sesion o contrasena
+incorrecta, 404 no encontrado, 405 metodo no permitido, 409 duplicado o cliente
+dado de baja, 415 Content-Type incorrecto, 422 regla de negocio, 500 error no
+previsto (con folio, sin detalles internos), 502/504 servicio externo.
+
 
 ### Pendiente para una siguiente iteracion
 - Desbloqueo facial: por eso ingresoMensual/saldo ya se manejan como
