@@ -102,6 +102,7 @@ Endpoints:
 - PUT   /clientes                 {"id": 3, ...campos a modificar} -> 200
 - PATCH /clientes/baja            {"id": 3} baja logica -> 200
 - POST  /cuentas/buscar           {"numeroCuenta" | "clienteId" | "estatus"} -> 200
+- POST  /transacciones/pago        pago/transferencia con GestoPago (sendTx), bandera, saldo y 2FA -> 200
 - POST  /auth/registro, POST /auth/login
 - GET   /catalogos/nacionalidades, POST /catalogos/nacionalidades/sincronizar
 

@@ -10,6 +10,9 @@ import com.proyecto.servicios.exception.cliente.CuentaNoEncontradaException;
 import com.proyecto.servicios.exception.cliente.LoginYaRegistradoException;
 import com.proyecto.servicios.exception.cliente.ValidacionNegocioException;
 import com.proyecto.servicios.exception.sf.PersonaNoEncontradaException;
+import com.proyecto.servicios.exception.transaccion.Codigo2faInvalidoException;
+import com.proyecto.servicios.exception.transaccion.SaldoInsuficienteException;
+import com.proyecto.servicios.exception.transaccion.TransaccionRechazadaException;
 import com.proyecto.servicios.model.comun.ErrorCampo;
 import com.proyecto.servicios.model.comun.RespuestaApi;
 import jakarta.servlet.http.HttpServletRequest;
@@ -110,8 +113,8 @@ public class GlobalExceptionHandler {
 
     // ======================= 401: autenticacion =======================
 
-    @ExceptionHandler(CredencialesInvalidasException.class)
-    public ResponseEntity<RespuestaApi<Void>> credenciales(CredencialesInvalidasException ex, HttpServletRequest request) {
+    @ExceptionHandler({CredencialesInvalidasException.class, Codigo2faInvalidoException.class})
+    public ResponseEntity<RespuestaApi<Void>> credenciales(RuntimeException ex, HttpServletRequest request) {
         return responder(HttpStatus.UNAUTHORIZED, ex.getMessage(), request, List.of());
     }
 
@@ -158,8 +161,8 @@ public class GlobalExceptionHandler {
         return responder(HttpStatus.CONFLICT, ex.getMessage(), request, List.of());
     }
 
-    @ExceptionHandler(ClienteInactivoException.class)
-    public ResponseEntity<RespuestaApi<Void>> clienteInactivo(ClienteInactivoException ex, HttpServletRequest request) {
+    @ExceptionHandler({ClienteInactivoException.class, SaldoInsuficienteException.class})
+    public ResponseEntity<RespuestaApi<Void>> conflictoEstado(RuntimeException ex, HttpServletRequest request) {
         return responder(HttpStatus.CONFLICT, ex.getMessage(), request, List.of());
     }
 
@@ -175,8 +178,8 @@ public class GlobalExceptionHandler {
     // ======================= 422: reglas de negocio =======================
 
     /** Mayoria de edad, nacionalidad fuera de catalogo, rango de fechas, etc. */
-    @ExceptionHandler(ValidacionNegocioException.class)
-    public ResponseEntity<RespuestaApi<Void>> reglaDeNegocio(ValidacionNegocioException ex, HttpServletRequest request) {
+    @ExceptionHandler({ValidacionNegocioException.class, TransaccionRechazadaException.class})
+    public ResponseEntity<RespuestaApi<Void>> reglaDeNegocio(RuntimeException ex, HttpServletRequest request) {
         return responder(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), request, List.of());
     }
 

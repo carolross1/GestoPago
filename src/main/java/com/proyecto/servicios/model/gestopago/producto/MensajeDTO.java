@@ -13,4 +13,7 @@ public class MensajeDTO {
 
     @JacksonXmlProperty(localName = "TEXTO")
     private String texto;
+
+    @JacksonXmlProperty(localName = "REFERENCIA")
+    private String referencia;
 }
