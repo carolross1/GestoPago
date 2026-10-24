@@ -2,6 +2,10 @@ package com.proyecto.servicios.service.cliente.Impl;
 
 import com.proyecto.servicios.entity.cliente.Cuenta;
 import com.proyecto.servicios.entity.cliente.Saldo;
+import com.proyecto.servicios.exception.cliente.CuentaNoEncontradaException;
+import com.proyecto.servicios.exception.cliente.ValidacionNegocioException;
+import com.proyecto.servicios.model.cliente.AbonoRequest;
+import com.proyecto.servicios.model.cliente.AbonoResponse;
 import com.proyecto.servicios.model.cliente.CuentaFiltroRequest;
 import com.proyecto.servicios.model.cliente.CuentaResponse;
 import com.proyecto.servicios.model.comun.PaginaResponse;
@@ -20,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.security.SecureRandom;
+import java.time.LocalDateTime;
 
 @Slf4j
 @Service
@@ -82,6 +87,51 @@ public class CuentaServiceImpl implements CuentaService {
             cuenta.setEstatus(ESTATUS_INACTIVA);
             cuentaRepository.save(cuenta);
         });
+    }
+
+    @Override
+    @Transactional
+    public AbonoResponse abonar(AbonoRequest request) {
+        Cuenta cuenta = cuentaRepository.findByNumeroCuenta(request.getNumeroCuenta())
+                .orElseThrow(() -> new CuentaNoEncontradaException(
+                        "No se encontró la cuenta con número " + request.getNumeroCuenta()));
+
+        if (!ESTATUS_ACTIVA.equalsIgnoreCase(cuenta.getEstatus())) {
+            throw new ValidacionNegocioException(
+                    "La cuenta " + request.getNumeroCuenta() + " está inactiva y no puede recibir abonos");
+        }
+
+        BigDecimal saldoActual = saldoRepository.findFirstByCuentaIdOrderByFechaDesc(cuenta.getId())
+                .map(Saldo::getSaldoResultante)
+                .orElse(BigDecimal.ZERO);
+
+        BigDecimal montoAbono = request.getMonto().setScale(2, RoundingMode.HALF_UP);
+        BigDecimal nuevoSaldo = saldoActual.add(montoAbono).setScale(2, RoundingMode.HALF_UP);
+
+        String concepto = (request.getConcepto() != null && !request.getConcepto().trim().isEmpty())
+                ? request.getConcepto().trim() : "ABONO";
+
+        Saldo movimiento = new Saldo();
+        movimiento.setCuentaId(cuenta.getId());
+        movimiento.setTipoMovimiento(concepto);
+        movimiento.setMonto(montoAbono);
+        movimiento.setSaldoResultante(nuevoSaldo);
+        movimiento.setFecha(LocalDateTime.now());
+        saldoRepository.save(movimiento);
+
+        log.info("Abono aplicado exitosamente. Cuenta={} Monto={} SaldoAnterior={} NuevoSaldo={}",
+                cuenta.getNumeroCuenta(), montoAbono, saldoActual, nuevoSaldo);
+
+        LocalDateTime ahora = LocalDateTime.now();
+        return AbonoResponse.builder()
+                .numeroCuenta(cuenta.getNumeroCuenta())
+                .montoAbonado(montoAbono)
+                .saldoAnterior(dosDecimales(saldoActual))
+                .nuevoSaldo(nuevoSaldo)
+                .concepto(concepto)
+                .fecha(ahora.toLocalDate())
+                .hora(ahora.toLocalTime().withNano(0))
+                .build();
     }
 
     private CuentaResponse construirResponse(Cuenta cuenta) {
