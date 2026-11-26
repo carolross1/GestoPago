@@ -1,10 +1,14 @@
 package com.proyecto.servicios.controller.transaccion;
 
 import com.proyecto.servicios.model.comun.RespuestaApi;
+import com.proyecto.servicios.model.transaccion.HistorialTransaccionesRequest;
+import com.proyecto.servicios.model.transaccion.MovimientoHistorialResponse;
 import com.proyecto.servicios.model.transaccion.PagoRequest;
 import com.proyecto.servicios.model.transaccion.PagoResponse;
 import com.proyecto.servicios.model.transaccion.Solicitar2faRequest;
 import com.proyecto.servicios.model.transaccion.Solicitar2faResponse;
+import com.proyecto.servicios.model.transaccion.ValidarReferenciaRequest;
+import com.proyecto.servicios.model.transaccion.ValidarReferenciaResponse;
 import com.proyecto.servicios.service.transaccion.TransaccionService;
 import com.proyecto.servicios.util.Respuestas;
 import io.swagger.v3.oas.annotations.Operation;
@@ -21,7 +25,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "Transacciones", description = "Pagos y transferencias vía GestoPago (sendTx) con 2FA por correo y validación de saldo")
+import java.util.List;
+
+@Tag(name = "Transacciones", description = "Pagos y transferencias vía GestoPago (sendTx) con 2FA por correo, validación de referencias e historial")
 @RestController
 @RequestMapping("/transacciones")
 public class TransaccionController {
@@ -74,5 +80,35 @@ public class TransaccionController {
     @PostMapping("/pago")
     public ResponseEntity<RespuestaApi<PagoResponse>> realizarPago(@Valid @RequestBody PagoRequest request) {
         return Respuestas.ok("Transacción realizada exitosamente", transaccionService.procesarPago(request));
+    }
+
+    @Operation(summary = "Validar referencia de un servicio",
+            description = "Verifica la referencia o teléfono ingresado según las reglas del servicio seleccionado antes de permitir continuar al pago.")
+    @SecurityRequirements
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Referencia consultada"),
+            @ApiResponse(responseCode = "400", description = "Datos de entrada inválidos",
+                    content = @Content(schema = @Schema(implementation = RespuestaApi.class)))
+    })
+    @PostMapping("/referencia/validar")
+    public ResponseEntity<RespuestaApi<ValidarReferenciaResponse>> validarReferencia(
+            @Valid @RequestBody ValidarReferenciaRequest request) {
+        ValidarReferenciaResponse resultado = transaccionService.validarReferencia(request);
+        return Respuestas.ok(resultado.getMensaje(), resultado);
+    }
+
+    @Operation(summary = "Consultar historial de transacciones",
+            description = "Obtiene la lista de pagos y movimientos realizados por la cuenta del cliente autenticado.")
+    @SecurityRequirements
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Historial obtenido correctamente"),
+            @ApiResponse(responseCode = "404", description = "Cuenta no encontrada",
+                    content = @Content(schema = @Schema(implementation = RespuestaApi.class)))
+    })
+    @PostMapping("/historial")
+    public ResponseEntity<RespuestaApi<List<MovimientoHistorialResponse>>> consultarHistorial(
+            @Valid @RequestBody HistorialTransaccionesRequest request) {
+        List<MovimientoHistorialResponse> historial = transaccionService.obtenerHistorial(request);
+        return Respuestas.ok("Se encontraron " + historial.size() + " movimiento(s) en el historial", historial);
     }
 }

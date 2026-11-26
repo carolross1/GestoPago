@@ -2,11 +2,16 @@ package com.proyecto.servicios.service.catalogo;
 
 import com.proyecto.servicios.client.RestCountriesClient;
 import com.proyecto.servicios.entity.catalogo.Nacionalidad;
+import com.proyecto.servicios.exception.ExternalServiceException;
 import com.proyecto.servicios.exception.cliente.ValidacionNegocioException;
+import com.proyecto.servicios.model.catalogo.NacionalidadResponse;
 import com.proyecto.servicios.model.catalogo.SincronizacionResponse;
 import com.proyecto.servicios.model.restcountries.RestCountriesResponse;
 import com.proyecto.servicios.repositorys.catalogo.NacionalidadRepository;
 import com.proyecto.servicios.service.catalogo.Impl.NacionalidadServiceImpl;
+import feign.FeignException;
+import feign.Request;
+import feign.RequestTemplate;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -14,17 +19,15 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class NacionalidadServiceImplTest {
@@ -96,6 +99,34 @@ class NacionalidadServiceImplTest {
     }
 
     @Test
+    void listar_retornaNacionalidades() {
+        Nacionalidad nac = new Nacionalidad();
+        nac.setCodigo("MEX");
+        nac.setCodigoIso2("MX");
+        nac.setNombre("México");
+
+        when(nacionalidadRepository.findByActivoTrueOrderByNombreAsc()).thenReturn(List.of(nac));
+
+        List<NacionalidadResponse> lista = nacionalidadService.listar();
+
+        assertEquals(1, lista.size());
+        assertEquals("MEX", lista.get(0).getCodigo());
+    }
+
+    @Test
+    void validar_codigoExistente_retornaNacionalidad() {
+        Nacionalidad nac = new Nacionalidad();
+        nac.setCodigo("MEX");
+
+        when(nacionalidadRepository.count()).thenReturn(10L);
+        when(nacionalidadRepository.findByCodigoAndActivoTrue("MEX")).thenReturn(Optional.of(nac));
+
+        Nacionalidad resultado = nacionalidadService.validar("MEX");
+        assertNotNull(resultado);
+        assertEquals("MEX", resultado.getCodigo());
+    }
+
+    @Test
     void validar_codigoInexistente_lanzaExcepcion() {
         when(nacionalidadRepository.count()).thenReturn(250L);
         when(nacionalidadRepository.findByCodigoAndActivoTrue("XYZ")).thenReturn(Optional.empty());
@@ -108,5 +139,19 @@ class NacionalidadServiceImplTest {
         when(nacionalidadRepository.count()).thenReturn(0L);
 
         assertThrows(ValidacionNegocioException.class, () -> nacionalidadService.validar("MEX"));
+    }
+
+    @Test
+    void buscar_codigoNull_retornaEmpty() {
+        assertTrue(nacionalidadService.buscar(null).isEmpty());
+    }
+
+    @Test
+    void sincronizar_errorUnauthorized() {
+        Request request = Request.create(Request.HttpMethod.GET, "/countries", Collections.emptyMap(), null, new RequestTemplate());
+        when(restCountriesClient.listarPaises(anyInt(), anyInt(), anyString()))
+                .thenThrow(new FeignException.Unauthorized("Unauthorized", request, null, null));
+
+        assertThrows(ExternalServiceException.class, () -> nacionalidadService.sincronizar());
     }
 }

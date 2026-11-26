@@ -107,6 +107,16 @@ class CatalogoProductosServiceImplTest {
     }
 
     @Test
+    void sincronizarCatalogo_siGestoPagoDevuelveListaVacia_noBorraCatalogoExistente() {
+        when(productoService.obtenerListaProductos()).thenReturn(List.of());
+
+        catalogoProductosService.sincronizarCatalogo();
+
+        verify(catalogoProductosRepository, times(0)).deleteAllInBatch();
+        verify(catalogoProductosRepository, times(0)).saveAll(any());
+    }
+
+    @Test
     void obtenerCatalogoAgrupado_conDatosEnRedis_regresaEsosDatos() throws Exception {
         CatalogoAgrupadoDTO catalogo = new CatalogoAgrupadoDTO();
         catalogo.setFechaActualizacion(LocalDateTime.now());

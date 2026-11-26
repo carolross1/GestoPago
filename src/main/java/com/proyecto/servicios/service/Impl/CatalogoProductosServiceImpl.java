@@ -39,6 +39,9 @@ public class CatalogoProductosServiceImpl implements CatalogoProductosService {
     @Value("${productos.cache.ttl-horas}")
     private long ttlHoras;
 
+    @Value("${productos.catalogo.auto-seed:true}")
+    private boolean autoSeed;
+
     public CatalogoProductosServiceImpl(ProductoService productoService,
                                         StringRedisTemplate redisTemplate,
                                         CatalogoProductosRepository catalogoProductosRepository,
@@ -56,6 +59,10 @@ public class CatalogoProductosServiceImpl implements CatalogoProductosService {
         log.info("Iniciando sincronizacion diaria de {}", SERVICIO);
         try {
             List<ProductoDTO> productos = productoService.obtenerListaProductos();
+            if (productos == null || productos.isEmpty()) {
+                log.warn("Sincronizacion de {} omitida: GestoPago devolvio 0 productos (posible restriccion de IP). Se conserva el catalogo existente.", SERVICIO);
+                return;
+            }
             LocalDateTime ahora = LocalDateTime.now();
 
             List<CatalogoProductosEntity> entidades = productos.stream()
@@ -119,6 +126,16 @@ public class CatalogoProductosServiceImpl implements CatalogoProductosService {
 
     private CatalogoAgrupadoDTO leerDeBaseDeDatos() {
         List<CatalogoProductosEntity> entidades = catalogoProductosRepository.findAll();
+
+        if (entidades.isEmpty() && autoSeed) {
+            log.info("Tabla catalogo_productos vacía; restaurando catálogo oficial GestoPago (102 productos)");
+            entidades = CatalogoOficialGestoPago.construirEntidades(LocalDateTime.now());
+            try {
+                entidades = catalogoProductosRepository.saveAll(entidades);
+            } catch (Exception e) {
+                log.warn("No se pudo persistir el catálogo oficial de respaldo: {}", e.getMessage());
+            }
+        }
 
         if (entidades.isEmpty()) {
             return catalogoVacio("Aun no se ha sincronizado el catalogo de productos");

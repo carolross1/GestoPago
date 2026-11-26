@@ -26,7 +26,10 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -68,8 +71,8 @@ class AuthServiceImplTest {
         when(loginRepository.findByClienteId(1L)).thenReturn(Optional.empty());
         when(passwordEncoder.encode("password123")).thenReturn("hash-generado");
 
-        authService.registrar(request);
-        // Si no lanzo excepcion, el flujo fue correcto
+        assertDoesNotThrow(() -> authService.registrar(request));
+        verify(loginRepository).save(any(Login.class));
     }
 
     @Test

@@ -30,6 +30,24 @@ public class Saldo {
     @Column(name = "tipo_movimiento", nullable = false, length = 20)
     private String tipoMovimiento;
 
+    @Column(name = "concepto", length = 100)
+    private String concepto;
+
+    @Column(name = "referencia", length = 100)
+    private String referencia;
+
+    @Column(name = "folio", length = 50)
+    private String folio;
+
+    @Column(name = "estado", length = 20)
+    private String estado;
+
+    @Column(name = "id_servicio")
+    private Integer idServicio;
+
+    @Column(name = "id_producto")
+    private Integer idProducto;
+
     @Column(name = "monto", nullable = false, precision = 14, scale = 2)
     private BigDecimal monto;
 
@@ -41,6 +59,11 @@ public class Saldo {
 
     @PrePersist
     void onCreate() {
-        fecha = LocalDateTime.now();
+        if (fecha == null) {
+            fecha = LocalDateTime.now();
+        }
+        if (estado == null) {
+            estado = "EXITOSA";
+        }
     }
 }

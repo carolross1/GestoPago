@@ -1,0 +1,21 @@
+{
+  "name": "gestopago-frontend-web",
+  "version": "1.0.0",
+  "description": "Plataforma Web de Pagos de Servicios - GestoPago",
+  "main": "index.html",
+  "scripts": {
+    "start": "serve . -p 5173",
+    "dev": "serve . -p 5173"
+  },
+  "keywords": [
+    "gestopago",
+    "fintech",
+    "pagos-servicios",
+    "portal-web"
+  ],
+  "author": "Equipo de Desarrollo GestoPago",
+  "license": "MIT",
+  "devDependencies": {
+    "serve": "^14.2.4"
+  }
+}

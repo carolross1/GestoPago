@@ -45,11 +45,20 @@ public class ServicioNotificacionPago {
     }
 
     public String construirUrlLogo(Integer idProducto, Integer idServicio, String servicio, String producto) {
-        return plantillaUrlLogo
-                .replace("{idProducto}", String.valueOf(idProducto))
-                .replace("{idServicio}", String.valueOf(idServicio))
-                .replace("{servicio}", codificar(servicio != null ? servicio : "Servicio"))
-                .replace("{producto}", codificar(producto != null ? producto : "Producto"));
+        String plantilla = (plantillaUrlLogo != null && !plantillaUrlLogo.isBlank())
+                ? plantillaUrlLogo
+                : "https://gestopago.portalventas.net/sistema/images/gestopago/servicios/{idServicio}.png";
+
+        String idProdStr = idProducto != null ? String.valueOf(idProducto) : "0";
+        String idServStr = (idServicio != null && idServicio > 0) ? String.valueOf(idServicio) : "166";
+        String servStr = (servicio != null && !servicio.isBlank()) ? servicio.trim() : "Servicio";
+        String prodStr = (producto != null && !producto.isBlank()) ? producto.trim() : "Producto";
+
+        return plantilla
+                .replace("{idProducto}", idProdStr)
+                .replace("{idServicio}", idServStr)
+                .replace("{servicio}", codificar(servStr))
+                .replace("{producto}", codificar(prodStr));
     }
 
     public void enviarComprobante(ComprobantePagoCorreo datos) {
@@ -58,124 +67,93 @@ public class ServicioNotificacionPago {
             return;
         }
 
-        log.info("""
-
-                ==============================================================
-                  [COMPROBANTE DE PAGO POR CORREO]
-                  Destinatario:   {}
-                  Producto:       {} - {}
-                  Logo:           {}
-                  Monto:          ${}
-                  IdTx / Autor.:  {} / {}
-                  UPC:            {}
-                ==============================================================
-                """, datos.getCorreoDestino(), datos.getServicio(), datos.getProducto(), datos.getUrlLogo(),
-                datos.getMonto(), datos.getIdTx(), datos.getNumAutorizacion(), datos.getUpc());
-
-        JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
-        if (mailSender == null || remitente == null || remitente.isBlank()) {
-            log.info("SMTP no configurado (MAIL_USERNAME / MAIL_PASSWORD); el comprobante solo queda en el log.");
+        JavaMailSender sender = mailSenderProvider.getIfAvailable();
+        if (sender == null) {
+            log.warn("JavaMailSender no disponible; se omite el envío del comprobante a {}", datos.getCorreoDestino());
             return;
         }
 
         try {
-            MimeMessage mensaje = mailSender.createMimeMessage();
+            MimeMessage mensaje = sender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mensaje, true, StandardCharsets.UTF_8.name());
-            helper.setFrom(remitente);
+
+            if (remitente != null && !remitente.isBlank()) {
+                helper.setFrom(remitente);
+            }
             helper.setTo(datos.getCorreoDestino());
-            helper.setSubject("Comprobante de pago - " + valor(datos.getServicio()));
-            helper.setText(construirTextoPlano(datos), construirHtml(datos));
+            helper.setSubject("Comprobante de compra - " + datos.getServicio() + " [UPC: " + datos.getUpc() + "]");
+            helper.setText(construirCuerpoHtml(datos), true);
 
-            mailSender.send(mensaje);
-            log.info("Comprobante de pago enviado a {}", datos.getCorreoDestino());
+            sender.send(mensaje);
+            log.info("Comprobante de compra enviado exitosamente a {}", datos.getCorreoDestino());
         } catch (Exception e) {
-            log.warn("No se pudo enviar el comprobante de pago a {}: {}", datos.getCorreoDestino(), e.getMessage());
+            log.error("Fallo al enviar comprobante de pago a {}: {}", datos.getCorreoDestino(), e.getMessage(), e);
         }
     }
 
-    private String construirHtml(ComprobantePagoCorreo d) {
-        return """
-                <html><body style="font-family:Arial,sans-serif;background:#f4f6f8;padding:24px;">
-                  <table style="max-width:520px;margin:auto;background:#fff;border-radius:8px;padding:24px;" width="100%%">
-                    <tr><td style="text-align:center;">
-                      <img src="%s" alt="%s" width="96" height="96" style="border-radius:8px;"/>
-                      <h2 style="color:#0D47A1;margin:12px 0 4px;">¡Pago realizado con éxito!</h2>
-                      <p style="color:#555;margin:0;">Hola %s, este es el comprobante de tu compra.</p>
-                    </td></tr>
-                    <tr><td>
-                      <table style="width:100%%;margin-top:20px;border-collapse:collapse;font-size:14px;">
-                        %s
-                      </table>
-                      <p style="color:#888;font-size:12px;margin-top:20px;">
-                        Si no reconoces esta operación, contacta a soporte inmediatamente.
-                      </p>
-                    </td></tr>
-                  </table>
-                </body></html>
-                """.formatted(
-                escapar(d.getUrlLogo()),
-                escapar(d.getServicio()),
-                escapar(d.getNombreCliente()),
-                fila("Servicio", d.getServicio())
-                        + fila("Producto", d.getProducto())
-                        + fila("Destino", d.getDestino())
-                        + fila("Monto", "$" + d.getMonto())
-                        + fila("Cuenta", enmascararCuenta(d.getNumeroCuenta()))
-                        + fila("Saldo restante", "$" + d.getSaldoRestante())
-                        + fila("ID de transacción", d.getIdTx())
-                        + fila("No. de autorización", d.getNumAutorizacion())
-                        + fila("Folio (UPC)", d.getUpc())
-                        + fila("Fecha", d.getFechaHora().format(FORMATO_FECHA))
-                        + fila("Hora", d.getFechaHora().format(FORMATO_HORA)));
+    private String construirCuerpoHtml(ComprobantePagoCorreo datos) {
+        String nombre = HtmlUtils.htmlEscape(datos.getNombreCliente() != null ? datos.getNombreCliente() : "Cliente");
+        String cuentaRaw = datos.getNumeroCuenta() != null ? datos.getNumeroCuenta() : "";
+        String cuentaEnmascarada = cuentaRaw.length() > 4
+                ? "•••• " + cuentaRaw.substring(cuentaRaw.length() - 4)
+                : cuentaRaw;
+        String cuenta = HtmlUtils.htmlEscape(cuentaEnmascarada);
+        String servicio = HtmlUtils.htmlEscape(datos.getServicio());
+        String producto = HtmlUtils.htmlEscape(datos.getProducto());
+        String destino = HtmlUtils.htmlEscape(datos.getDestino());
+        String idTx = HtmlUtils.htmlEscape(datos.getIdTx());
+        String autorizacion = HtmlUtils.htmlEscape(datos.getNumAutorizacion());
+        String upc = HtmlUtils.htmlEscape(datos.getUpc());
+        String urlLogo = datos.getUrlLogo();
+
+        String fecha = datos.getFechaHora() != null ? datos.getFechaHora().format(FORMATO_FECHA) : "";
+        String hora = datos.getFechaHora() != null ? datos.getFechaHora().format(FORMATO_HORA) : "";
+
+        return "<!DOCTYPE html>"
+                + "<html lang='es'>"
+                + "<head><meta charset='UTF-8'></head>"
+                + "<body style='font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6; margin: 0; padding: 24px; color: #1f2937;'>"
+                + "  <table width='100%' cellpadding='0' cellspacing='0' style='max-width: 560px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08);'>"
+                + "    <tr>"
+                + "      <td style='background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%); padding: 28px 24px; text-align: center; color: #ffffff;'>"
+                + "        <img src='" + urlLogo + "' alt='" + servicio + "' width='64' height='64' style='display: block; margin: 0 auto 12px auto; border-radius: 8px; background: #ffffff; object-fit: contain; padding: 4px; box-sizing: border-box;' />"
+                + "        <h1 style='margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0.5px;'>Comprobante de Pago</h1>"
+                + "        <p style='margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;'>GestoPago &bull; Transacción exitosa</p>"
+                + "      </td>"
+                + "    </tr>"
+                + "    <tr>"
+                + "      <td style='padding: 24px;'>"
+                + "        <p style='margin: 0 0 16px 0; font-size: 15px;'>Hola, <strong>" + nombre + "</strong>:</p>"
+                + "        <p style='margin: 0 0 20px 0; font-size: 14px; line-height: 1.5; color: #4b5563;'>Tu pago ha sido procesado correctamente. A continuación te presentamos el resumen oficial de la transacción:</p>"
+                + "        <table width='100%' cellpadding='0' cellspacing='0' style='border-collapse: collapse; margin-bottom: 20px; font-size: 13px;'>"
+                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280;'>Servicio:</td><td style='padding: 10px 0; font-weight: 600; text-align: right;'>" + servicio + "</td></tr>"
+                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280;'>Producto:</td><td style='padding: 10px 0; text-align: right;'>" + producto + "</td></tr>"
+                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280;'>Destino / Referencia:</td><td style='padding: 10px 0; font-weight: 600; text-align: right;'>" + destino + "</td></tr>"
+                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280;'>Cuenta origen:</td><td style='padding: 10px 0; text-align: right;'>" + cuenta + "</td></tr>"
+                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280;'>Folio UPC:</td><td style='padding: 10px 0; font-family: monospace; font-size: 14px; font-weight: 700; color: #0d47a1; text-align: right;'>" + upc + "</td></tr>"
+                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280;'>No. de autorización:</td><td style='padding: 10px 0; text-align: right;'>" + autorizacion + "</td></tr>"
+                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280;'>ID Transacción GestoPago:</td><td style='padding: 10px 0; text-align: right;'>" + idTx + "</td></tr>"
+                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280;'>Fecha y hora:</td><td style='padding: 10px 0; text-align: right;'>" + fecha + " " + hora + "</td></tr>"
+                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280; font-weight: 600;'>Monto pagado:</td><td style='padding: 10px 0; font-size: 16px; font-weight: 700; color: #047857; text-align: right;'>$" + datos.getMonto() + " MXN</td></tr>"
+                + "          <tr><td style='padding: 10px 0; color: #6b7280;'>Saldo restante:</td><td style='padding: 10px 0; font-weight: 600; text-align: right;'>$" + datos.getSaldoRestante() + " MXN</td></tr>"
+                + "        </table>"
+                + "        <div style='background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 12px; margin-top: 16px; font-size: 12px; color: #065f46; text-align: center;'>"
+                + "          Conserva este comprobante para cualquier aclaración o consulta sobre tu pago."
+                + "        </div>"
+                + "      </td>"
+                + "    </tr>"
+                + "    <tr>"
+                + "      <td style='background-color: #f9fafb; padding: 16px 24px; text-align: center; font-size: 11px; color: #9ca3af; border-top: 1px solid #e5e7eb;'>"
+                + "        Este es un mensaje automático, por favor no respondas a este correo.<br/>"
+                + "        &copy; 2026 GestoPago. Todos los derechos reservados."
+                + "      </td>"
+                + "    </tr>"
+                + "  </table>"
+                + "</body>"
+                + "</html>";
     }
 
-    private String construirTextoPlano(ComprobantePagoCorreo d) {
-        return """
-                Hola %s,
-
-                Tu pago se realizó con éxito.
-
-                Servicio:            %s
-                Producto:            %s
-                Destino:             %s
-                Monto:               $%s
-                Cuenta:              %s
-                Saldo restante:      $%s
-                ID de transacción:   %s
-                No. de autorización: %s
-                Folio (UPC):         %s
-                Fecha y hora:        %s %s
-                Logo:                %s
-
-                Si no reconoces esta operación, contacta a soporte inmediatamente.
-                """.formatted(valor(d.getNombreCliente()), valor(d.getServicio()), valor(d.getProducto()),
-                valor(d.getDestino()), d.getMonto(), enmascararCuenta(d.getNumeroCuenta()), d.getSaldoRestante(),
-                valor(d.getIdTx()), valor(d.getNumAutorizacion()), valor(d.getUpc()),
-                d.getFechaHora().format(FORMATO_FECHA), d.getFechaHora().format(FORMATO_HORA), d.getUrlLogo());
-    }
-
-    private String fila(String etiqueta, String valor) {
-        return "<tr><td style=\"padding:6px 0;color:#777;border-bottom:1px solid #eee;\">" + escapar(etiqueta)
-                + "</td><td style=\"padding:6px 0;text-align:right;font-weight:bold;border-bottom:1px solid #eee;\">"
-                + escapar(valor) + "</td></tr>";
-    }
-
-    private static String enmascararCuenta(String cuenta) {
-        if (cuenta == null || cuenta.length() < 4) {
-            return valor(cuenta);
-        }
-        return "******" + cuenta.substring(cuenta.length() - 4);
-    }
-
-    private static String escapar(String texto) {
-        return HtmlUtils.htmlEscape(valor(texto));
-    }
-
-    private static String valor(String texto) {
-        return texto == null || texto.isBlank() ? "-" : texto;
-    }
-
-    private static String codificar(String texto) {
+    private String codificar(String texto) {
         return URLEncoder.encode(texto, StandardCharsets.UTF_8);
     }
 }

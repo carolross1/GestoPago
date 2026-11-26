@@ -16,6 +16,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Optional;
@@ -54,6 +56,9 @@ public class SesionActivaFilter extends OncePerRequestFilter {
      */
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
         String path = request.getRequestURI();
         return "POST".equalsIgnoreCase(request.getMethod())
                 && ("/clientes".equals(path) || "/clientes/".equals(path));
@@ -83,7 +88,10 @@ public class SesionActivaFilter extends OncePerRequestFilter {
         }
 
         Sesion sesion = sesionOpt.get();
-        long minutosInactivo = ChronoUnit.MINUTES.between(sesion.getUltimaActividad(), LocalDateTime.now());
+        ZoneId zonaHoraria = ZoneId.systemDefault();
+        ZonedDateTime ultimaActividad = sesion.getUltimaActividad().atZone(zonaHoraria);
+        ZonedDateTime ahora = ZonedDateTime.now(zonaHoraria);
+        long minutosInactivo = ChronoUnit.MINUTES.between(ultimaActividad, ahora);
 
         if (minutosInactivo >= inactividadMinutos) {
             sesion.setActiva(false);
@@ -93,7 +101,7 @@ public class SesionActivaFilter extends OncePerRequestFilter {
             return;
         }
 
-        sesion.setUltimaActividad(LocalDateTime.now());
+        sesion.setUltimaActividad(ahora.toLocalDateTime());
         sesionRepository.save(sesion);
 
         request.setAttribute("clienteId", jwtUtil.obtenerClienteId(token));
@@ -106,6 +114,15 @@ public class SesionActivaFilter extends OncePerRequestFilter {
      * misma estructura RespuestaApi que usa el resto de la API.
      */
     private void rechazar(HttpServletRequest request, HttpServletResponse response, String mensaje) throws IOException {
+        String origin = request.getHeader("Origin");
+        if (origin != null && !origin.isBlank()) {
+            response.setHeader("Access-Control-Allow-Origin", origin);
+            response.setHeader("Access-Control-Allow-Credentials", "true");
+        } else {
+            response.setHeader("Access-Control-Allow-Origin", "*");
+        }
+        response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
+        response.setHeader("Access-Control-Allow-Headers", "*");
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");

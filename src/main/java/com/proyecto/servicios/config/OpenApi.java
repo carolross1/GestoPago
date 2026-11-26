@@ -78,6 +78,9 @@ public class OpenApi {
                 boolean esPublico = operacion.getSecurity() != null && operacion.getSecurity().isEmpty();
                 boolean esPortal = ruta.startsWith("/clientes") || ruta.startsWith("/cuentas")
                         || ruta.equals("/catalogos/nacionalidades/sincronizar");
+                if (operacion.getResponses() == null) {
+                    operacion.setResponses(new io.swagger.v3.oas.models.responses.ApiResponses());
+                }
                 if (esPortal && !esPublico && !operacion.getResponses().containsKey("401")) {
                     operacion.getResponses().addApiResponse("401", sinToken);
                 }

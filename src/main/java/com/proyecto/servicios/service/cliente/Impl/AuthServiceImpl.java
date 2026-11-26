@@ -21,6 +21,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Optional;
 
 /**
@@ -92,7 +93,7 @@ public class AuthServiceImpl implements AuthService {
         sesion.setLoginId(login.getId());
         sesion.setToken(token);
         sesion.setActiva(true);
-        sesion.setUltimaActividad(LocalDateTime.now());
+        sesion.setUltimaActividad(LocalDateTime.now(ZoneId.systemDefault()));
         sesionRepository.save(sesion);
 
         log.info("Login exitoso para cliente id={}", cliente.getId());

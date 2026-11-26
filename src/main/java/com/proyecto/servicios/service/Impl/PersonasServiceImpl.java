@@ -10,34 +10,36 @@ import com.proyecto.servicios.repositorys.sf.PersonasRepository;
 import com.proyecto.servicios.service.PersonaService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import java.util.Optional;
 
 @Service
 @Slf4j
 public class PersonasServiceImpl implements PersonaService {
-    @Autowired
-    private PersonasRepository personasRepository;
+
+    private final PersonasRepository personasRepository;
+
+    public PersonasServiceImpl(PersonasRepository personasRepository) {
+        this.personasRepository = personasRepository;
+    }
+
     @Override
     public PersonaResponse creaPersona(PersonasRequest personasRequest) {
-        PersonaResponse person=new PersonaResponse();
-     Personas persona=new Personas();
-     persona.setNombre(personasRequest.getNombre());
-     persona.setApellidoMaterno(personasRequest.getApellidoMaterno());
-     persona.setApellidoP(personasRequest.getApellidoP());
-     personasRepository.save(persona);
-     person.setCodigo(0);
-     person.setMensaje("Persona creada correctamente");
-     BeanUtils.copyProperties(persona,person);
+        PersonaResponse person = new PersonaResponse();
+        Personas persona = new Personas();
+        persona.setNombre(personasRequest.getNombre());
+        persona.setApellidoMaterno(personasRequest.getApellidoMaterno());
+        persona.setApellidoP(personasRequest.getApellidoP());
+        personasRepository.save(persona);
+        person.setCodigo(0);
+        person.setMensaje("Persona creada correctamente");
+        BeanUtils.copyProperties(persona, person);
 
-     return person;
+        return person;
     }
 
     @Override
     public GenericResponse eliminaPersona(EliminaPersonaRequest eliminaPersonaRequest) {
-        GenericResponse genericResponse=new GenericResponse();
+        GenericResponse genericResponse = new GenericResponse();
 
         Personas personaElimina = personasRepository.findByNombre(eliminaPersonaRequest.getNombre())
                 .orElseThrow(() -> new PersonaNoEncontradaException("La persona no existe"));
@@ -50,7 +52,7 @@ public class PersonasServiceImpl implements PersonaService {
 
     @Override
     public GenericResponse actualizaPersona(PersonasRequest personasRequest) {
-        GenericResponse genericResponse=new GenericResponse();
+        GenericResponse genericResponse = new GenericResponse();
         Personas personaActualiza = personasRepository.findByNombre(personasRequest.getNombre())
                 .orElseThrow(() -> new PersonaNoEncontradaException("La persona no existe"));
 

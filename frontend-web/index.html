@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GestoPago | Plataforma Web de Pagos de Servicios</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#F5F3FF',
+              100: '#EDE9FE',
+              200: '#DDD6FE',
+              500: '#8B5CF6',
+              600: '#7C3AED',
+              700: '#6D28D9',
+              800: '#4C1D95',
+              900: '#2E1065',
+            },
+            accent: '#A78BFA'
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Estilos Personalizados -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-[#F8F6FF] text-slate-800 antialiased min-h-screen relative overflow-x-hidden">
+  <!-- Esferas de Iluminación Ambiental (Ambient Glow) -->
+  <div class="ambient-glow-1"></div>
+  <div class="ambient-glow-2"></div>
+
+  <!-- ========================================== -->
+  <!-- VISTA 1: AUTENTICACIÓN (LOGIN & REGISTRO)  -->
+  <!-- ========================================== -->
+  <div id="view-auth" class="min-h-screen flex items-center justify-center p-4 sm:p-6 bg-gradient-to-br from-slate-900 via-brand-800 to-slate-950">
+    <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 border border-slate-100">
+      <!-- Logo y Encabezado -->
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-700 text-white shadow-lg shadow-brand-700/30 mb-4">
+          <i data-lucide="wallet" class="w-8 h-8 text-accent"></i>
+        </div>
+        <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">GestoPago Web</h1>
+        <p class="text-sm text-slate-500 mt-1">Plataforma Segura de Pago de Servicios</p>
+      </div>
+
+      <!-- Tabs Login / Registro -->
+      <div class="flex p-1 bg-slate-100 rounded-xl mb-6">
+        <button id="tab-login" onclick="app.setAuthTab('login')" class="flex-1 py-2.5 text-xs font-bold rounded-lg transition-all duration-200 bg-white text-brand-700 shadow-sm">
+          Iniciar Sesión
+        </button>
+        <button id="tab-registro" onclick="app.setAuthTab('registro')" class="flex-1 py-2.5 text-xs font-bold rounded-lg transition-all duration-200 text-slate-500 hover:text-slate-800">
+          Registrar Portal
+        </button>
+      </div>
+
+      <!-- Alerta de Error / Éxito -->
+      <div id="auth-alert" class="hidden mb-5 p-3.5 rounded-xl text-xs font-semibold flex items-center gap-2.5"></div>
+
+      <!-- Formulario Login -->
+      <form id="form-login" onsubmit="app.handleLogin(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1.5">Correo Electrónico</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+              <i data-lucide="mail" class="w-4 h-4"></i>
+            </span>
+            <input type="email" id="login-email" required placeholder="tu.correo@ejemplo.com" class="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1.5">Contraseña</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+              <i data-lucide="lock" class="w-4 h-4"></i>
+            </span>
+            <input type="password" id="login-password" required placeholder="••••••••" class="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all">
+          </div>
+        </div>
+
+        <button type="submit" id="btn-login-submit" class="w-full py-3.5 px-4 btn-glow font-bold rounded-xl text-sm flex items-center justify-center gap-2">
+          <span>Ingresar al Portal</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+      </form>
+
+      <!-- Formulario Registro -->
+      <form id="form-registro" onsubmit="app.handleRegistro(event)" class="space-y-4 hidden">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1.5">Correo del Cliente Registrado</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+              <i data-lucide="mail" class="w-4 h-4"></i>
+            </span>
+            <input type="email" id="reg-email" required placeholder="correo.del.cliente@dominio.com" class="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all">
+          </div>
+          <span class="text-[11px] text-slate-400 mt-1 block">Debe coincidir con tu cuenta de cliente dada de alta.</span>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1.5">Nueva Contraseña</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+              <i data-lucide="key" class="w-4 h-4"></i>
+            </span>
+            <input type="password" id="reg-password" minlength="8" required placeholder="Mínimo 8 caracteres" class="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1.5">Confirmar Contraseña</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+              <i data-lucide="check" class="w-4 h-4"></i>
+            </span>
+            <input type="password" id="reg-password-confirm" minlength="8" required placeholder="Repite la contraseña" class="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all">
+          </div>
+        </div>
+
+        <button type="submit" id="btn-reg-submit" class="w-full py-3.5 px-4 btn-glow font-bold rounded-xl text-sm flex items-center justify-center gap-2">
+          <span>Crear Credenciales de Acceso</span>
+          <i data-lucide="user-plus" class="w-4 h-4"></i>
+        </button>
+      </form>
+
+      <!-- Pie de página de Auth -->
+      <div class="mt-8 pt-6 border-t border-slate-100 text-center">
+        <p class="text-xs text-slate-400 flex items-center justify-center gap-1.5">
+          <i data-lucide="shield-check" class="w-4 h-4 text-emerald-500"></i>
+          Sesiones compartidas seguras con token JWT y 2FA
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- VISTA 2: APLICACIÓN PRINCIPAL (PORTAL)     -->
+  <!-- ========================================== -->
+  <div id="view-app" class="hidden min-h-screen flex flex-col md:flex-row">
+    <!-- Sidebar Navegación (Escritorio) -->
+    <aside class="w-full md:w-64 bg-slate-900 text-white flex-shrink-0 flex flex-col justify-between border-r border-slate-800">
+      <div>
+        <!-- Brand -->
+        <div class="p-6 border-b border-slate-800 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-brand-700 flex items-center justify-center text-accent shadow-md">
+              <i data-lucide="wallet" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <span class="font-extrabold text-base tracking-tight block">GestoPago</span>
+              <span class="text-[10px] uppercase font-bold tracking-widest text-accent">Portal Web</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Links Navegación -->
+        <nav class="p-4 space-y-1.5">
+          <button onclick="app.setAppSection('dashboard')" id="nav-dashboard" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all bg-brand-700 text-white shadow-sm">
+            <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+            <span>Dashboard</span>
+          </button>
+          <button onclick="app.setAppSection('catalogo')" id="nav-catalogo" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-slate-300 hover:bg-slate-800 hover:text-white">
+            <i data-lucide="layers" class="w-4 h-4"></i>
+            <span>Catálogo Servicios</span>
+          </button>
+          <button onclick="app.setAppSection('historial')" id="nav-historial" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-slate-300 hover:bg-slate-800 hover:text-white">
+            <i data-lucide="history" class="w-4 h-4"></i>
+            <span>Historial de Pagos</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Tarjeta Usuario Autenticado / Logout -->
+      <div class="p-4 border-t border-slate-800">
+        <div class="flex items-center gap-3 p-2.5 rounded-xl bg-slate-800/60 mb-2">
+          <div id="user-avatar" class="w-9 h-9 rounded-lg bg-brand-600 flex items-center justify-center font-bold text-sm text-white">
+            U
+          </div>
+          <div class="overflow-hidden flex-1">
+            <p id="user-name" class="text-xs font-bold text-white truncate">Usuario</p>
+            <p id="user-email" class="text-[11px] text-slate-400 truncate">usuario@correo.com</p>
+          </div>
+        </div>
+        <button onclick="app.handleLogout()" class="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold text-red-400 hover:bg-red-500/10 transition-colors">
+          <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+          <span>Cerrar Sesión</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Contenido Principal -->
+    <main class="flex-1 flex flex-col min-h-screen overflow-y-auto">
+      <!-- Barra Superior -->
+      <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
+        <div class="flex items-center gap-2">
+          <h2 id="section-title" class="text-lg font-extrabold text-slate-900 tracking-tight">Dashboard General</h2>
+        </div>
+        <div class="flex items-center gap-4">
+          <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200">
+            <span class="text-xs text-slate-500 font-medium">Cuenta:</span>
+            <span id="header-cuenta-num" class="text-xs font-bold text-slate-800">Cargando...</span>
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          </div>
+          <button onclick="app.abrirModalPagoDirecto()" class="px-4 py-2 bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center gap-1.5">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+            <span>Nuevo Pago</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Contenedor de Vistas Interiores -->
+      <div class="p-6 md:p-8 max-w-7xl w-full mx-auto space-y-8">
+
+        <!-- ========================================== -->
+        <!-- SECCIÓN A: DASHBOARD                       -->
+        <!-- ========================================== -->
+        <section id="section-dashboard" class="space-y-8">
+          <!-- Grid Superior: Tarjeta Bancaria + Resumen de Saldo -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Tarjeta Neobanco -->
+            <div class="bank-card p-6 flex flex-col justify-between h-56 lg:col-span-2">
+              <div class="flex justify-between items-start">
+                <div>
+                  <span class="text-xs font-semibold tracking-wider text-slate-300 uppercase block">GestoPago Débito</span>
+                  <span class="text-xs text-accent font-bold">Cuenta Digital Activa</span>
+                </div>
+                <i data-lucide="wifi" class="w-6 h-6 text-slate-300"></i>
+              </div>
+
+              <div>
+                <span class="text-xs text-slate-300 font-medium block">Saldo Disponible</span>
+                <div class="flex items-center gap-3">
+                  <span id="dash-saldo" class="text-3xl font-extrabold tracking-tight">$0.00</span>
+                  <button onclick="app.toggleMostrarSaldo()" class="text-slate-300 hover:text-white p-1">
+                    <i id="dash-saldo-icon" data-lucide="eye" class="w-4 h-4"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div class="flex justify-between items-end border-t border-white/10 pt-3">
+                <div>
+                  <span class="text-[10px] text-slate-300 uppercase block">Titular</span>
+                  <span id="dash-titular" class="text-sm font-bold tracking-wide">Cliente</span>
+                </div>
+                <div class="text-right">
+                  <span class="text-[10px] text-slate-300 uppercase block">Número de Cuenta</span>
+                  <span id="dash-cuenta" class="text-sm font-mono font-bold tracking-wider">•••• ••••</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Panel de Seguridad 2FA -->
+            <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
+              <div>
+                <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4">
+                  <i data-lucide="shield-check" class="w-6 h-6"></i>
+                </div>
+                <h3 class="text-base font-bold text-slate-900 mb-1">Protección en 2 Pasos</h3>
+                <p class="text-xs text-slate-500 leading-relaxed">
+                  Todas las transacciones y pagos consumidos mediante GestoPago cuentan con validación de referencia y código de verificación 2FA enviado a tu correo.
+                </p>
+              </div>
+              <div class="pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
+                <span class="font-bold text-slate-700">Estado de Cuenta</span>
+                <span class="px-2.5 py-1 rounded-full font-bold text-emerald-700 bg-emerald-100">ACTIVA</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Servicios Destacados: Carrusel Horizontal / Stories -->
+          <div class="glass-panel p-6 rounded-3xl">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-base font-extrabold text-slate-900 tracking-tight">Servicios Frecuentes</h3>
+                <p class="text-xs text-slate-500">Toca cualquier burbuja para pagar en 1 clic</p>
+              </div>
+              <button onclick="app.setAppSection('catalogo')" class="text-xs font-bold text-brand-700 hover:text-brand-900 flex items-center gap-1 transition-colors">
+                <span>Ver catálogo</span>
+                <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+            <!-- Carrusel Horizontal deslizable Stories -->
+            <div id="dash-servicios-carousel" class="flex items-center gap-6 overflow-x-auto no-scrollbar py-2 px-1 scroll-smooth">
+              <!-- Render dinámico de burbujas Stories -->
+            </div>
+          </div>
+
+          <!-- Últimos Movimientos -->
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-base font-bold text-slate-900">Últimas Transacciones</h3>
+              <button onclick="app.setAppSection('historial')" class="text-xs font-bold text-brand-700 hover:underline">Ver historial →</button>
+            </div>
+            <div id="dash-movimientos-container" class="bg-white rounded-2xl border border-slate-200 shadow-sm divide-y divide-slate-100 overflow-hidden">
+              <!-- Render dinámico -->
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- SECCIÓN B: CATÁLOGO DE SERVICIOS           -->
+        <!-- ========================================== -->
+        <section id="section-catalogo" class="hidden space-y-6">
+          <!-- Filtro de Búsqueda y Categorías -->
+          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex flex-col sm:flex-row gap-4 justify-between items-center">
+              <div class="relative w-full sm:w-96">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                  <i data-lucide="search" class="w-4 h-4"></i>
+                </span>
+                <input type="text" id="catalogo-search" oninput="app.handleSearchCatalogo(this.value)" placeholder="Buscar por servicio (CFE, Telcel, Telmex...)" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+              </div>
+              <span id="catalogo-contador" class="text-xs font-semibold text-slate-500">Cargando catálogo...</span>
+            </div>
+
+            <!-- Categorías Tipo Pills -->
+            <div id="catalogo-categorias" class="flex gap-2 overflow-x-auto pb-1 text-xs font-semibold">
+              <button onclick="app.filtrarCategoria(null)" class="cat-pill active px-4 py-2 rounded-xl bg-brand-700 text-white">Todos</button>
+              <button onclick="app.filtrarCategoria(1)" class="cat-pill px-4 py-2 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200">Telefonía y Recargas</button>
+              <button onclick="app.filtrarCategoria(2)" class="cat-pill px-4 py-2 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200">Luz y Energía (CFE)</button>
+              <button onclick="app.filtrarCategoria(3)" class="cat-pill px-4 py-2 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200">Agua</button>
+              <button onclick="app.filtrarCategoria(4)" class="cat-pill px-4 py-2 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200">Internet y Cable</button>
+              <button onclick="app.filtrarCategoria(5)" class="cat-pill px-4 py-2 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200">Streaming</button>
+            </div>
+          </div>
+
+          <!-- Grid de Productos -->
+          <div id="catalogo-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+            <!-- Render dinámico -->
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- SECCIÓN C: HISTORIAL DE PAGOS              -->
+        <!-- ========================================== -->
+        <section id="section-historial" class="hidden space-y-6">
+          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <h3 class="text-base font-bold text-slate-900">Historial Oficial de Pagos</h3>
+              <p class="text-xs text-slate-500">Transacciones y folios de operación UPC del usuario autenticado</p>
+            </div>
+            <button onclick="app.cargarHistorial()" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5">
+              <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
+              <span>Actualizar</span>
+            </button>
+          </div>
+
+          <!-- Tabla de Historial -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider">
+                  <tr>
+                    <th class="py-3.5 px-6">Proveedor / Servicio</th>
+                    <th class="py-3.5 px-4">Folio UPC</th>
+                    <th class="py-3.5 px-4">Referencia / Destino</th>
+                    <th class="py-3.5 px-4">Fecha & Hora</th>
+                    <th class="py-3.5 px-4 text-right">Importe</th>
+                    <th class="py-3.5 px-4 text-center">Estado</th>
+                    <th class="py-3.5 px-6 text-center">Acción</th>
+                  </tr>
+                </thead>
+                <tbody id="historial-tbody" class="divide-y divide-slate-100">
+                  <!-- Render dinámico -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: FLUJO DE PAGO Y VALIDACIÓN 2FA      -->
+  <!-- ========================================== -->
+  <div id="modal-pago" class="fixed inset-0 z-50 modal-overlay hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 animate-fade-in relative max-h-[90vh] overflow-y-auto">
+      <!-- Botón Cerrar -->
+      <button onclick="app.cerrarModalPago()" class="absolute top-6 right-6 text-slate-400 hover:text-slate-600">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <!-- Paso 1 y 2: Formulario de Pago y Validación -->
+      <div id="modal-step-form">
+        <!-- Servicio Encabezado -->
+        <div class="flex items-center gap-4 mb-6 pb-4 border-b border-slate-100">
+          <div id="pago-servicio-logo" class="w-14 h-14 logo-box">
+            <img src="" alt="Logo" id="pago-img-logo">
+          </div>
+          <div>
+            <h3 id="pago-servicio-nombre" class="text-base font-bold text-slate-900">Servicio</h3>
+            <p id="pago-producto-nombre" class="text-xs text-slate-500">Detalle del producto</p>
+          </div>
+        </div>
+
+        <!-- Formulario -->
+        <form onsubmit="app.handleIniciarPago(event)" class="space-y-4">
+          <input type="hidden" id="pago-id-servicio">
+          <input type="hidden" id="pago-id-producto">
+          <input type="hidden" id="pago-tipo-front">
+
+          <!-- 1. Campo de Referencia / Teléfono con Botón de Validación -->
+          <div>
+            <label id="pago-label-destino" class="block text-xs font-bold text-slate-700 mb-1.5">
+              Referencia del Recibo o Número
+            </label>
+            <div class="flex gap-2">
+              <input type="text" id="pago-input-destino" oninput="app.resetValidacionReferencia()" required class="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500">
+              <button type="button" id="btn-validar-ref" onclick="app.validarReferenciaActual()" class="px-4 py-3 bg-brand-700 hover:bg-brand-800 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm">
+                <i data-lucide="search" class="w-4 h-4"></i>
+                <span>Validar</span>
+              </button>
+            </div>
+            <p id="pago-ayuda-destino" class="text-[11px] text-slate-400 mt-1">Ingresa los dígitos para validar con el proveedor.</p>
+          </div>
+
+          <!-- Banner de Resultado de Validación de Referencia -->
+          <div id="banner-ref-estado" class="hidden p-3.5 rounded-xl text-xs font-semibold"></div>
+
+          <!-- 2. Monto a Pagar -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1.5">Monto a Pagar ($ MXN)</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 font-bold">$</span>
+              <input type="number" step="0.01" min="1" id="pago-input-monto" required placeholder="0.00" class="w-full pl-8 pr-4 py-3 rounded-xl border border-slate-200 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-brand-500">
+            </div>
+            <div class="flex justify-between items-center text-[11px] text-slate-500 mt-1">
+              <span>Saldo actual: <strong id="pago-saldo-disponible">$0.00</strong></span>
+            </div>
+          </div>
+
+          <!-- Botón de Continuar a 2FA -->
+          <button type="submit" id="btn-proceder-pago" disabled class="w-full mt-4 py-3.5 px-4 bg-slate-300 text-slate-500 cursor-not-allowed font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2">
+            <i data-lucide="shield" class="w-4 h-4"></i>
+            <span>Valida la referencia para continuar</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Paso 3: Modal de Ingreso de Código 2FA -->
+      <div id="modal-step-2fa" class="hidden text-center space-y-5">
+        <div class="w-14 h-14 rounded-2xl bg-brand-50 text-brand-700 mx-auto flex items-center justify-center shadow-sm">
+          <i data-lucide="mail-check" class="w-7 h-7"></i>
+        </div>
+        <div>
+          <h3 class="text-lg font-extrabold text-slate-900">Código de Seguridad 2FA</h3>
+          <p class="text-xs text-slate-500 mt-1">
+            Enviamos un token de 6 dígitos a tu correo: <strong id="correo-enmascarado-2fa">***@***.com</strong>
+          </p>
+        </div>
+
+        <!-- Resumen de Pago -->
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs text-left space-y-1.5">
+          <div class="flex justify-between"><span class="text-slate-500">Servicio:</span><span id="2fa-resumen-servicio" class="font-bold text-slate-800">-</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Referencia:</span><span id="2fa-resumen-ref" class="font-bold text-slate-800">-</span></div>
+          <div class="flex justify-between border-t border-slate-200 pt-1.5"><span class="text-slate-500">Total a Pagar:</span><span id="2fa-resumen-monto" class="font-extrabold text-brand-700 text-sm">$0.00</span></div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-2">Ingresa el código de 6 dígitos</label>
+          <input type="text" id="input-codigo-2fa" maxlength="6" placeholder="000000" class="w-44 text-center tracking-[0.4em] py-3 text-xl font-mono font-bold rounded-xl border-2 border-brand-500 focus:outline-none">
+        </div>
+
+        <div id="alerta-error-2fa" class="hidden p-3 bg-red-50 text-red-700 rounded-xl text-xs font-semibold"></div>
+
+        <div class="flex gap-3">
+          <button type="button" onclick="app.volverPasoFormulario()" class="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-xs">
+            Modificar Datos
+          </button>
+          <button type="button" id="btn-confirmar-2fa" onclick="app.confirmarPagoFinal()" class="flex-1 py-3 bg-brand-700 hover:bg-brand-800 text-white font-bold rounded-xl text-xs shadow-md">
+            Autorizar Pago
+          </button>
+        </div>
+      </div>
+
+      <!-- Paso 4: Comprobante de Éxito con Folio UPC -->
+      <div id="modal-step-comprobante" class="hidden text-center space-y-5">
+        <div class="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 mx-auto flex items-center justify-center">
+          <i data-lucide="check-circle" class="w-9 h-9"></i>
+        </div>
+        <div>
+          <h3 class="text-lg font-extrabold text-slate-900">¡Pago Procesado Exitosamente!</h3>
+          <p class="text-xs text-slate-500 mt-1">Transacción autorizada y aplicada con GestoPago</p>
+        </div>
+
+        <!-- Recibo Digital Estilo Ticket -->
+        <div class="ticket-receipt p-6 border text-xs text-left space-y-2.5">
+          <div class="flex justify-between"><span class="text-slate-500">Folio UPC:</span><span id="recibo-upc" class="font-mono font-bold text-brand-700 text-sm">-</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">ID Transacción:</span><span id="recibo-id-tx" class="font-mono font-semibold text-slate-700">-</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Autorización:</span><span id="recibo-auth" class="font-mono font-semibold text-slate-700">-</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Servicio Pagado:</span><span id="recibo-servicio" class="font-bold text-slate-800">-</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Referencia:</span><span id="recibo-destino" class="font-bold text-slate-800">-</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Fecha y Hora:</span><span id="recibo-fecha" class="font-semibold text-slate-700">-</span></div>
+          <div class="flex justify-between border-t border-slate-200 pt-2"><span class="text-slate-600 font-bold">Importe Pagado:</span><span id="recibo-monto" class="text-base font-extrabold text-slate-900">$0.00</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Nuevo Saldo:</span><span id="recibo-nuevo-saldo" class="font-bold text-emerald-600">$0.00</span></div>
+        </div>
+
+        <div class="flex gap-3">
+          <button onclick="window.print()" class="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5">
+            <i data-lucide="printer" class="w-4 h-4"></i>
+            <span>Imprimir Recibo</span>
+          </button>
+          <button onclick="app.cerrarModalPagoYRefrescar()" class="flex-1 py-3 bg-brand-700 hover:bg-brand-800 text-white font-bold rounded-xl text-xs shadow-md">
+            Finalizar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: DETALLE DE MOVIMIENTO EN HISTORIAL  -->
+  <!-- ========================================== -->
+  <div id="modal-detalle-historial" class="fixed inset-0 z-50 modal-overlay hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-100 animate-fade-in relative">
+      <button onclick="app.cerrarModalDetalle()" class="absolute top-6 right-6 text-slate-400 hover:text-slate-600">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-3.5 mb-5">
+        <div id="detalle-logo-box" class="w-12 h-12 logo-box">
+          <img src="" alt="" id="detalle-img-logo">
+        </div>
+        <div>
+          <h4 id="detalle-servicio" class="font-extrabold text-base text-slate-900">Servicio</h4>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold text-emerald-700 bg-emerald-100">TRANSACCIÓN EXITOSA</span>
+        </div>
+      </div>
+
+      <div class="space-y-2.5 text-xs border-y border-slate-100 py-4 my-4">
+        <div class="flex justify-between"><span class="text-slate-500">Folio UPC:</span><span id="detalle-folio" class="font-mono font-bold text-slate-800">-</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">Referencia / Destino:</span><span id="detalle-referencia" class="font-bold text-slate-800">-</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">Concepto:</span><span id="detalle-concepto" class="font-semibold text-slate-700">-</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">Fecha y Hora:</span><span id="detalle-fecha" class="font-semibold text-slate-700">-</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">Cuenta de Débito:</span><span id="detalle-cuenta" class="font-mono font-semibold text-slate-700">-</span></div>
+        <div class="flex justify-between border-t border-slate-100 pt-2"><span class="text-slate-600 font-bold">Importe Pagado:</span><span id="detalle-monto" class="text-sm font-extrabold text-slate-900">-</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">Saldo Resultante:</span><span id="detalle-saldo-resultante" class="font-bold text-emerald-600">-</span></div>
+      </div>
+
+      <button onclick="app.cerrarModalDetalle()" class="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors">
+        Cerrar Detalle
+      </button>
+    </div>
+  </div>
+
+  <!-- Scripts de la Aplicación -->
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
