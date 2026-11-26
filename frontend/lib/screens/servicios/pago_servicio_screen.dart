@@ -240,10 +240,7 @@ class _PagoServicioScreenState extends State<PagoServicioScreen> {
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: AppColors.border, width: 1),
                 ),
-                child: Wrap(
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 14,
-                  runSpacing: 10,
+                child: Row(
                   children: [
                     BrandLogoWidget(
                       servicio: widget.producto.servicio,
@@ -251,13 +248,15 @@ class _PagoServicioScreenState extends State<PagoServicioScreen> {
                       borderRadius: 16,
                       urlLogo: widget.producto.urlLogo,
                     ),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(minWidth: 160),
+                    const SizedBox(width: 14),
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             widget.producto.servicio,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
@@ -506,15 +505,20 @@ class _PagoServicioScreenState extends State<PagoServicioScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    '2. Monto a Pagar',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
+                  const Flexible(
+                    child: Text(
+                      '2. Monto a Pagar',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                   ),
-                  if (_esPrecioFijo)
+                  if (_esPrecioFijo) ...[
+                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
@@ -530,6 +534,7 @@ class _PagoServicioScreenState extends State<PagoServicioScreen> {
                         ),
                       ),
                     ),
+                  ],
                 ],
               ),
               const SizedBox(height: 8),

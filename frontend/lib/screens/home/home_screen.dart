@@ -152,12 +152,18 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                               const SizedBox(width: 6),
-                              Text(
-                                'Cta: $numeroCuenta',
-                                style: const TextStyle(
-                                  color: AppColors.success,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
+                              Flexible(
+                                child: Text(
+                                  numeroCuenta.length > 4
+                                      ? 'Cta: •••• ${numeroCuenta.substring(numeroCuenta.length - 4)}'
+                                      : 'Cta: $numeroCuenta',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppColors.success,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
                             ],
@@ -547,13 +553,17 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () => setState(() => _currentSection = 0),
           ),
           const SizedBox(width: 8),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
-              letterSpacing: -0.3,
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+                letterSpacing: -0.3,
+              ),
             ),
           ),
         ],
@@ -631,26 +641,35 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                         ),
-                        Column(
-                          children: [
-                            Text(
-                              'Hola, $nombre',
-                              style: const TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF1E1B4B),
-                                letterSpacing: -0.4,
-                              ),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            child: Column(
+                              children: [
+                                Text(
+                                  'Hola, $nombre',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF1E1B4B),
+                                    letterSpacing: -0.4,
+                                  ),
+                                ),
+                                const Text(
+                                  'GestoPago Banca Digital',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF7C3AED),
+                                  ),
+                                ),
+                              ],
                             ),
-                            const Text(
-                              'GestoPago Banca Digital',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF7C3AED),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                         InkWell(
                           borderRadius: BorderRadius.circular(14),
@@ -773,27 +792,33 @@ class _HomeScreenState extends State<HomeScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Servicios Frecuentes',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFF1E1B4B),
-                                letterSpacing: -0.3,
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Servicios Frecuentes',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF1E1B4B),
+                                  letterSpacing: -0.3,
+                                ),
                               ),
-                            ),
-                            SizedBox(height: 2),
-                            Text(
-                              'Toca cualquier burbuja para pagar',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF6B7280),
+                              SizedBox(height: 2),
+                              Text(
+                                'Toca cualquier burbuja para pagar',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF6B7280),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                         TextButton(
                           onPressed: () => setState(() => _currentSection = 1),
@@ -1035,13 +1060,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Últimos Movimientos',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF1E1B4B),
-                            letterSpacing: -0.3,
+                        const Expanded(
+                          child: Text(
+                            'Últimos Movimientos',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF1E1B4B),
+                              letterSpacing: -0.3,
+                            ),
                           ),
                         ),
                         TextButton(
@@ -1123,6 +1152,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                       children: [
                                         Text(
                                           mov.servicio,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                           style: const TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w800,
@@ -1132,6 +1163,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                         const SizedBox(height: 2),
                                         Text(
                                           'Folio: ${mov.folio}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                           style: const TextStyle(
                                             fontSize: 11,
                                             color: Color(0xFF6B7280),
@@ -1141,6 +1174,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ],
                                     ),
                                   ),
+                                  const SizedBox(width: 10),
                                   Column(
                                     crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [

@@ -204,7 +204,7 @@ class _CatalogoServiciosScreenState extends State<CatalogoServiciosScreen> {
                               crossAxisCount: crossAxisCount,
                               crossAxisSpacing: 14,
                               mainAxisSpacing: 14,
-                              childAspectRatio: 0.82,
+                              childAspectRatio: crossAxisCount == 2 ? 0.74 : 0.82,
                             ),
                               itemCount: productos.length,
                               itemBuilder: (context, index) {
@@ -290,6 +290,8 @@ class _CatalogoServiciosScreenState extends State<CatalogoServiciosScreen> {
                                                 p.tipoFront == 1
                                                     ? 'Móvil / 10 dígitos'
                                                     : 'Recibo / Referencia',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                                 style: const TextStyle(
                                                   fontSize: 10,
                                                   fontWeight: FontWeight.w600,

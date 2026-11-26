@@ -33,6 +33,9 @@ public class ServicioNotificacionPago {
     @Value("${spring.mail.username:}")
     private String remitente;
 
+    @Value("${mail.brevo.api-key:}")
+    private String brevoApiKey;
+
     /**
      * Plantilla de la URL del logo. Marcadores soportados:
      * {idProducto}, {idServicio}, {servicio}, {producto}.
@@ -67,6 +70,13 @@ public class ServicioNotificacionPago {
             return;
         }
 
+        String asunto = "Comprobante de compra - " + datos.getServicio() + " [UPC: " + datos.getUpc() + "]";
+        String cuerpoHtml = construirCuerpoHtml(datos);
+
+        if (EnviadorCorreoHttp.enviarPorBrevo(brevoApiKey, remitente, datos.getCorreoDestino(), asunto, cuerpoHtml)) {
+            return;
+        }
+
         JavaMailSender sender = mailSenderProvider.getIfAvailable();
         if (sender == null) {
             log.warn("JavaMailSender no disponible; se omite el envío del comprobante a {}", datos.getCorreoDestino());
@@ -81,8 +91,8 @@ public class ServicioNotificacionPago {
                 helper.setFrom(remitente);
             }
             helper.setTo(datos.getCorreoDestino());
-            helper.setSubject("Comprobante de compra - " + datos.getServicio() + " [UPC: " + datos.getUpc() + "]");
-            helper.setText(construirCuerpoHtml(datos), true);
+            helper.setSubject(asunto);
+            helper.setText(cuerpoHtml, true);
 
             sender.send(mensaje);
             log.info("Comprobante de compra enviado exitosamente a {}", datos.getCorreoDestino());

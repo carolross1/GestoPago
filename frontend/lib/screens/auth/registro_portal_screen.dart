@@ -52,7 +52,12 @@ class _RegistroPortalScreenState extends State<RegistroPortalScreen> {
             children: [
               Icon(Icons.check_circle_rounded, color: AppColors.success, size: 28),
               SizedBox(width: 10),
-              Text('¡Registro Exitoso!', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Expanded(
+                child: Text(
+                  '¡Registro Exitoso!',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
             ],
           ),
           content: const Text(

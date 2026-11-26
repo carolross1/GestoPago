@@ -33,6 +33,9 @@ public class ServicioNotificacion2FA {
     @Value("${spring.mail.username:}")
     private String remitente;
 
+    @Value("${mail.brevo.api-key:}")
+    private String brevoApiKey;
+
     // Fallback en memoria en caso de que Redis no este corriendo en local
     private final Map<String, EntradaCodigo2FA> cacheMemoria = new ConcurrentHashMap<>();
 
@@ -122,6 +125,43 @@ public class ServicioNotificacion2FA {
                 ==============================================================
                 """, correoDestino, numeroCuenta, codigo, expiracionMinutos);
 
+        String cuentaEnmascarada = numeroCuenta.length() > 4
+                ? "******" + numeroCuenta.substring(numeroCuenta.length() - 4) : numeroCuenta;
+
+        String textoPlano = String.format("""
+                Estimado cliente,
+
+                Tu código de seguridad para autorizar la transacción en tu cuenta %s es:
+
+                %s
+
+                Este código es confidencial, es de un solo uso y tiene una vigencia de %d minutos.
+                Si no reconoces esta operación, por favor contacta a soporte inmediatamente.
+                """, cuentaEnmascarada, codigo, expiracionMinutos);
+
+        String html = """
+                <html><body style="font-family:Arial,sans-serif;background:#f4f6f8;padding:24px;">
+                  <table style="max-width:480px;margin:auto;background:#fff;border-radius:8px;padding:24px;text-align:center;" width="100%%">
+                    <tr><td>
+                      <h2 style="color:#0D47A1;margin-top:0;">Código de verificación</h2>
+                      <p style="color:#555;">Usa este código para autorizar la transacción en tu cuenta <b>%s</b>:</p>
+                      <p style="font-size:34px;letter-spacing:8px;font-weight:bold;color:#222;background:#eef3fb;
+                                border-radius:8px;padding:14px 0;margin:20px 0;">%s</p>
+                      <p style="color:#555;">Vigencia: <b>%d minutos</b>. Es de un solo uso; no lo compartas con nadie.</p>
+                      <p style="color:#888;font-size:12px;margin-top:20px;">
+                        Si no reconoces esta operación, contacta a soporte inmediatamente.
+                      </p>
+                    </td></tr>
+                  </table>
+                </body></html>
+                """.formatted(cuentaEnmascarada, codigo, expiracionMinutos);
+
+        String asunto = "Código 2FA - Autorización de Pago";
+
+        if (EnviadorCorreoHttp.enviarPorBrevo(brevoApiKey, remitente, correoDestino, asunto, html)) {
+            return;
+        }
+
         JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
         if (mailSender == null || remitente == null || remitente.isBlank()) {
             log.info("SMTP no configurado (MAIL_USERNAME / MAIL_PASSWORD); el código 2FA queda disponible en consola y respuesta.");
@@ -129,42 +169,11 @@ public class ServicioNotificacion2FA {
         }
 
         try {
-            String cuentaEnmascarada = numeroCuenta.length() > 4
-                    ? "******" + numeroCuenta.substring(numeroCuenta.length() - 4) : numeroCuenta;
-
-            String textoPlano = String.format("""
-                    Estimado cliente,
-
-                    Tu código de seguridad para autorizar la transacción en tu cuenta %s es:
-
-                    %s
-
-                    Este código es confidencial, es de un solo uso y tiene una vigencia de %d minutos.
-                    Si no reconoces esta operación, por favor contacta a soporte inmediatamente.
-                    """, cuentaEnmascarada, codigo, expiracionMinutos);
-
-            String html = """
-                    <html><body style="font-family:Arial,sans-serif;background:#f4f6f8;padding:24px;">
-                      <table style="max-width:480px;margin:auto;background:#fff;border-radius:8px;padding:24px;text-align:center;" width="100%%">
-                        <tr><td>
-                          <h2 style="color:#0D47A1;margin-top:0;">Código de verificación</h2>
-                          <p style="color:#555;">Usa este código para autorizar la transacción en tu cuenta <b>%s</b>:</p>
-                          <p style="font-size:34px;letter-spacing:8px;font-weight:bold;color:#222;background:#eef3fb;
-                                    border-radius:8px;padding:14px 0;margin:20px 0;">%s</p>
-                          <p style="color:#555;">Vigencia: <b>%d minutos</b>. Es de un solo uso; no lo compartas con nadie.</p>
-                          <p style="color:#888;font-size:12px;margin-top:20px;">
-                            Si no reconoces esta operación, contacta a soporte inmediatamente.
-                          </p>
-                        </td></tr>
-                      </table>
-                    </body></html>
-                    """.formatted(cuentaEnmascarada, codigo, expiracionMinutos);
-
             MimeMessage mensaje = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mensaje, true, StandardCharsets.UTF_8.name());
             helper.setFrom(remitente);
             helper.setTo(correoDestino);
-            helper.setSubject("Código 2FA - Autorización de Pago");
+            helper.setSubject(asunto);
             helper.setText(textoPlano, html);
 
             mailSender.send(mensaje);

@@ -12,11 +12,13 @@ class Solicitar2faResponse {
   final String correoEnmascarado;
   final int vigenciaMinutos;
   final String? expiracion;
+  final String? codigoParaPruebas;
 
   Solicitar2faResponse({
     required this.correoEnmascarado,
     required this.vigenciaMinutos,
     this.expiracion,
+    this.codigoParaPruebas,
   });
 
   factory Solicitar2faResponse.fromJson(Map<String, dynamic> json) {
@@ -24,6 +26,7 @@ class Solicitar2faResponse {
       correoEnmascarado: json['correoEnmascarado'] as String? ?? '***@***.com',
       vigenciaMinutos: (json['vigenciaMinutos'] as num?)?.toInt() ?? 5,
       expiracion: json['expiracion'] as String?,
+      codigoParaPruebas: json['codigoParaPruebas'] as String?,
     );
   }
 }

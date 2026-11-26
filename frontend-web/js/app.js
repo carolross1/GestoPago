@@ -582,6 +582,16 @@ const app = {
         document.getElementById('2fa-resumen-ref').textContent = destino;
         document.getElementById('2fa-resumen-monto').textContent = this.formatoMoneda(monto);
 
+        const bannerRespaldo = document.getElementById('banner-codigo-respaldo-2fa');
+        const valorRespaldo = document.getElementById('valor-codigo-respaldo-2fa');
+        this.codigoRespaldo2fa = resp2fa.data.codigoParaPruebas || null;
+        if (this.codigoRespaldo2fa && bannerRespaldo && valorRespaldo) {
+          valorRespaldo.textContent = this.codigoRespaldo2fa;
+          bannerRespaldo.classList.remove('hidden');
+        } else if (bannerRespaldo) {
+          bannerRespaldo.classList.add('hidden');
+        }
+
         this.pagoPendiente = {
           numeroCuenta: this.cuenta.numeroCuenta,
           idServicio,
@@ -608,6 +618,12 @@ const app = {
       btnProceder.disabled = false;
       btnProceder.innerHTML = `<i data-lucide="shield-check" class="w-4 h-4"></i> <span>Proceder al Pago con Código 2FA</span>`;
       if (window.lucide) lucide.createIcons();
+    }
+  },
+
+  usarCodigoRespaldo2fa() {
+    if (this.codigoRespaldo2fa) {
+      document.getElementById('input-codigo-2fa').value = this.codigoRespaldo2fa;
     }
   },
 

@@ -9,6 +9,12 @@ class PerfilScreen extends StatelessWidget {
   final bool isEmbedded;
   const PerfilScreen({super.key, this.isEmbedded = false});
 
+  String _enmascararCuenta(String? cuenta) {
+    if (cuenta == null || cuenta.isEmpty) return 'No asignada';
+    if (cuenta.length <= 4) return cuenta;
+    return '•••• ${cuenta.substring(cuenta.length - 4)}';
+  }
+
   Widget _buildSeccionItem({
     required IconData icon,
     required String titulo,
@@ -43,6 +49,8 @@ class PerfilScreen extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   subtitulo,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
@@ -134,7 +142,7 @@ class PerfilScreen extends StatelessWidget {
                     _buildSeccionItem(
                       icon: Icons.credit_card_rounded,
                       titulo: 'Número de Cuenta',
-                      subtitulo: cuenta?.numeroCuenta ?? 'No asignada',
+                      subtitulo: _enmascararCuenta(cuenta?.numeroCuenta),
                     ),
                     const Divider(),
                     _buildSeccionItem(
@@ -177,13 +185,13 @@ class PerfilScreen extends StatelessWidget {
                     _buildSeccionItem(
                       icon: Icons.badge_outlined,
                       titulo: 'CURP',
-                      subtitulo: cliente?.curp ?? 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢',
+                      subtitulo: cliente?.curp ?? '••••••••••••••••••',
                     ),
                     const Divider(),
                     _buildSeccionItem(
                       icon: Icons.receipt_outlined,
                       titulo: 'RFC',
-                      subtitulo: cliente?.rfc ?? 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢',
+                      subtitulo: cliente?.rfc ?? '•••••••••••••',
                     ),
                     const Divider(),
                     _buildSeccionItem(
