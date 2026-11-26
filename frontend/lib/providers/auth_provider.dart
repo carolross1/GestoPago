@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/network/api_client.dart';
+import '../../core/services/biometric_service.dart';
 import '../../models/auth_model.dart';
 import '../../models/cliente_model.dart';
 
@@ -57,6 +58,12 @@ class AuthProvider extends ChangeNotifier {
       await _api.setToken(_token);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('auth_email', correo.trim().toLowerCase());
+
+      // Guardar credenciales cifradas para futuros inicios de sesión con huella
+      await BiometricService.instance.saveCredentialsForBiometric(
+        correo: correo.trim().toLowerCase(),
+        password: password,
+      );
 
       // Cargar información del cliente
       await _cargarPerfilCliente(correo.trim().toLowerCase());

@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/services/biometric_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../models/transaccion_model.dart';
@@ -41,15 +42,35 @@ class _Modal2FAState extends State<Modal2FA> {
   final _codigoController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
+  bool _biometriaDisponible = false;
+  bool _usarCodigoManual = false;
+  bool _autenticandoHuella = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _verificarBiometria();
+  }
+
+  Future<void> _verificarBiometria() async {
+    final puedeHuella = await BiometricService.instance.canUseBiometricPayments();
+    if (!mounted) return;
+    final pagoProv = Provider.of<PagoProvider>(context, listen: false);
+    final tieneTokenBackend =
+        pagoProv.solicitud2fa?.codigoParaPruebas?.isNotEmpty == true;
+    setState(() {
+      _biometriaDisponible = puedeHuella && tieneTokenBackend;
+      _usarCodigoManual = !_biometriaDisponible;
+    });
+  }
+
   @override
   void dispose() {
     _codigoController.dispose();
     super.dispose();
   }
 
-  Future<void> _confirmarPago() async {
-    if (!_formKey.currentState!.validate()) return;
-
+  Future<void> _procesarPagoConCodigo(String codigo) async {
     final pagoProv = Provider.of<PagoProvider>(context, listen: false);
     final cuentaProv = Provider.of<CuentaProvider>(context, listen: false);
 
@@ -61,7 +82,7 @@ class _Modal2FAState extends State<Modal2FA> {
       tipoDestino: widget.tipoDestino,
       telefono: widget.telefono,
       referencia: widget.referencia,
-      codigo2fa: _codigoController.text.trim(),
+      codigo2fa: codigo.trim(),
     );
 
     final success = await pagoProv.pagar(request);
@@ -70,7 +91,6 @@ class _Modal2FAState extends State<Modal2FA> {
 
     if (success && pagoProv.ultimoPagoExitoso != null) {
       final pago = pagoProv.ultimoPagoExitoso!;
-      // Actualizar el saldo localmente
       cuentaProv.actualizarSaldo(pago.saldoRestante);
 
       Navigator.pop(context); // Cierra modal
@@ -96,12 +116,49 @@ class _Modal2FAState extends State<Modal2FA> {
     }
   }
 
+  Future<void> _confirmarConHuella() async {
+    if (_autenticandoHuella) return;
+
+    final pagoProv = Provider.of<PagoProvider>(context, listen: false);
+    final codigoToken = pagoProv.solicitud2fa?.codigoParaPruebas;
+    if (codigoToken == null || codigoToken.isEmpty) {
+      setState(() => _usarCodigoManual = true);
+      return;
+    }
+
+    setState(() => _autenticandoHuella = true);
+    final resultado = await BiometricService.instance.authenticate(
+      reason:
+          'Autoriza tu pago de ${CurrencyFormatter.format(widget.monto)} a ${widget.servicioNombre}',
+    );
+    if (!mounted) return;
+    setState(() => _autenticandoHuella = false);
+
+    if (resultado.success) {
+      await _procesarPagoConCodigo(codigoToken);
+    } else if (resultado.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(resultado.errorMessage!),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _confirmarConCodigo() async {
+    if (!_formKey.currentState!.validate()) return;
+    await _procesarPagoConCodigo(_codigoController.text.trim());
+  }
+
   @override
   Widget build(BuildContext context) {
     final pagoProv = Provider.of<PagoProvider>(context);
     final correo = pagoProv.solicitud2fa?.correoEnmascarado ?? 'tu correo registrado';
     final codigoRespaldo = pagoProv.solicitud2fa?.codigoParaPruebas;
     final maxModalHeight = MediaQuery.of(context).size.height * 0.90;
+    final modoHuella = _biometriaDisponible && !_usarCodigoManual;
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -135,28 +192,32 @@ class _Modal2FAState extends State<Modal2FA> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Icono de candado / 2FA
+                    // Icono de huella digital o 2FA
                     Center(
                       child: Container(
-                        width: 52,
-                        height: 52,
+                        width: 58,
+                        height: 58,
                         decoration: BoxDecoration(
-                          color: AppColors.accent.withValues(alpha: 0.1),
+                          color: AppColors.accent.withValues(alpha: 0.12),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
-                          Icons.verified_user_rounded,
+                        child: Icon(
+                          modoHuella
+                              ? Icons.fingerprint_rounded
+                              : Icons.verified_user_rounded,
                           color: AppColors.accent,
-                          size: 28,
+                          size: 32,
                         ),
                       ),
                     ),
                     const SizedBox(height: 12),
 
-                    const Text(
-                      'Autorización de Seguridad 2FA',
+                    Text(
+                      modoHuella
+                          ? 'Autorización con Huella Digital'
+                          : 'Autorización de Seguridad 2FA',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
                         color: AppColors.textPrimary,
@@ -165,7 +226,9 @@ class _Modal2FAState extends State<Modal2FA> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Hemos enviado un código de 6 dígitos a $correo para autorizar tu operación.',
+                      modoHuella
+                          ? 'Verifica los datos y confirma el pago usando el lector de huella de tu dispositivo.'
+                          : 'Hemos enviado un código de 6 dígitos a $correo para autorizar tu operación.',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 13,
@@ -175,7 +238,7 @@ class _Modal2FAState extends State<Modal2FA> {
                     ),
                     const SizedBox(height: 14),
 
-                    // Resumen de la Operación (Requerimiento: confirmación explícita con datos visibles)
+                    // Resumen de la Operación (Confirmación explícita con datos visibles)
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
@@ -240,87 +303,125 @@ class _Modal2FAState extends State<Modal2FA> {
                       ),
                     ),
 
-                    if (codigoRespaldo != null && codigoRespaldo.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      InkWell(
-                        borderRadius: BorderRadius.circular(12),
-                        onTap: () {
-                          _codigoController.text = codigoRespaldo;
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: AppColors.accentSoft,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.key_rounded, color: AppColors.accent, size: 18),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Código de verificación (respaldo en pantalla)',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: AppColors.textSecondary,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    Text(
-                                      codigoRespaldo,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w900,
-                                        color: AppColors.accent,
-                                        letterSpacing: 3,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const Text(
-                                'Autollenar',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppColors.accent,
-                                ),
-                              ),
-                            ],
+                    if (modoHuella) ...[
+                      const SizedBox(height: 20),
+                      CustomButton(
+                        text: 'Autorizar con Huella Digital',
+                        icon: Icons.fingerprint_rounded,
+                        isLoading: _autenticandoHuella || pagoProv.isProcesandoPago,
+                        onPressed: _confirmarConHuella,
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () => setState(() => _usarCodigoManual = true),
+                        child: const Text(
+                          'Usar código 2FA de 6 dígitos en su lugar',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.accent,
                           ),
                         ),
                       ),
+                    ] else ...[
+                      if (codigoRespaldo != null && codigoRespaldo.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () {
+                            _codigoController.text = codigoRespaldo;
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: AppColors.accentSoft,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.key_rounded, color: AppColors.accent, size: 18),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Código de verificación (respaldo en pantalla)',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppColors.textSecondary,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      Text(
+                                        codigoRespaldo,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w900,
+                                          color: AppColors.accent,
+                                          letterSpacing: 3,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Text(
+                                  'Autollenar',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.accent,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 14),
+
+                      // Campo de código de 6 dígitos
+                      CustomTextField(
+                        label: 'Código de 6 dígitos',
+                        hint: '123456',
+                        controller: _codigoController,
+                        keyboardType: TextInputType.number,
+                        prefixIcon: Icons.key_rounded,
+                        validator: (val) {
+                          if (val == null || val.trim().length != 6) {
+                            return 'Ingresa el código de 6 dígitos';
+                          }
+                          return null;
+                        },
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      CustomButton(
+                        text: 'Confirmar y Pagar',
+                        icon: Icons.check_circle_outline_rounded,
+                        isLoading: pagoProv.isProcesandoPago,
+                        onPressed: _confirmarConCodigo,
+                      ),
+                      if (_biometriaDisponible) ...[
+                        const SizedBox(height: 8),
+                        TextButton.icon(
+                          onPressed: () => setState(() => _usarCodigoManual = false),
+                          icon: const Icon(Icons.fingerprint_rounded, size: 18, color: AppColors.accent),
+                          label: const Text(
+                            'Volver a huella digital',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.accent,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
-                    const SizedBox(height: 14),
 
-                    // Campo de código de 6 dígitos
-                    CustomTextField(
-                      label: 'Código de 6 dígitos',
-                      hint: '123456',
-                      controller: _codigoController,
-                      keyboardType: TextInputType.number,
-                      prefixIcon: Icons.key_rounded,
-                      validator: (val) {
-                        if (val == null || val.trim().length != 6) {
-                          return 'Ingresa el código de 6 dígitos';
-                        }
-                        return null;
-                      },
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    CustomButton(
-                      text: 'Confirmar y Pagar',
-                      icon: Icons.check_circle_outline_rounded,
-                      isLoading: pagoProv.isProcesandoPago,
-                      onPressed: _confirmarPago,
-                    ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 6),
                     CustomButton(
                       text: 'Cancelar',
                       isSecondary: true,
@@ -336,4 +437,3 @@ class _Modal2FAState extends State<Modal2FA> {
     );
   }
 }
-

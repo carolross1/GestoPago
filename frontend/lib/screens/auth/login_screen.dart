@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/services/biometric_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/custom_button.dart';
@@ -19,12 +20,93 @@ class _LoginScreenState extends State<LoginScreen> {
   final _correoController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _canUseBiometric = false;
+  String? _maskedBiometricEmail;
+
+  @override
+  void initState() {
+    super.initState();
+    _verificarBiometriaDisponible();
+  }
+
+  Future<void> _verificarBiometriaDisponible() async {
+    final disponible = await BiometricService.instance.canUseBiometricLogin();
+    final correoEnmascarado =
+        disponible ? await BiometricService.instance.getSavedEmailMasked() : null;
+    if (!mounted) return;
+    setState(() {
+      _canUseBiometric = disponible;
+      _maskedBiometricEmail = correoEnmascarado;
+    });
+  }
 
   @override
   void dispose() {
     _correoController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleBiometricLogin() async {
+    if (_isLoading) return;
+
+    final authResult = await BiometricService.instance.authenticate(
+      reason: 'Verifica tu huella digital para entrar a GestoPago',
+    );
+
+    if (!mounted) return;
+
+    if (!authResult.success) {
+      if (authResult.errorMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(authResult.errorMessage!),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+      return;
+    }
+
+    final creds = await BiometricService.instance.getSavedCredentials();
+    if (!mounted) return;
+
+    if (creds == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Inicia sesión con tu contraseña una vez para vincular tu huella.'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      setState(() => _canUseBiometric = false);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final success = await authProvider.login(creds.correo, creds.password);
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (success) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authProvider.errorMessage ?? 'Error al iniciar sesión con huella'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
   }
 
   Future<void> _handleLogin() async {
@@ -177,6 +259,43 @@ class _LoginScreenState extends State<LoginScreen> {
                             isLoading: _isLoading,
                             onPressed: _handleLogin,
                           ),
+                          if (_canUseBiometric) ...[
+                            const SizedBox(height: 14),
+                            OutlinedButton.icon(
+                              onPressed: _isLoading ? null : _handleBiometricLogin,
+                              icon: const Icon(
+                                Icons.fingerprint_rounded,
+                                size: 24,
+                                color: AppColors.accent,
+                              ),
+                              label: Text(
+                                _maskedBiometricEmail != null
+                                    ? 'Entrar con huella ($_maskedBiometricEmail)'
+                                    : 'Entrar con huella digital',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                  color: AppColors.accent,
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                  horizontal: 16,
+                                ),
+                                side: BorderSide(
+                                  color: AppColors.accent.withValues(alpha: 0.45),
+                                  width: 1.4,
+                                ),
+                                backgroundColor: AppColors.accentSoft.withValues(alpha: 0.5),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

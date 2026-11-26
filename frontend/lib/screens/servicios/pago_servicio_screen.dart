@@ -581,12 +581,14 @@ class _PagoServicioScreenState extends State<PagoServicioScreen> {
 
               const SizedBox(height: 32),
 
-              // Botón de Pago con 2FA
+              // Botón de Pago con Huella Digital / 2FA
               CustomButton(
                 text: _referenciaValidada
-                    ? 'Confirmar Pago con Código 2FA'
+                    ? 'Continuar y Autorizar Pago'
                     : 'Valida la Referencia para Continuar',
-                icon: Icons.security_rounded,
+                icon: _referenciaValidada
+                    ? Icons.fingerprint_rounded
+                    : Icons.security_rounded,
                 isLoading: pagoProv.isEnviando2fa,
                 onPressed: _referenciaValidada ? _iniciarFlujoPago : _validarReferencia,
                 backgroundColor: _referenciaValidada
@@ -598,7 +600,7 @@ class _PagoServicioScreenState extends State<PagoServicioScreen> {
 
               const Center(
                 child: Text(
-                  'Por seguridad, se enviará un código 2FA a tu correo registrado para autorizar el cobro.',
+                  'Por seguridad, autorizarás el cobro con tu huella digital o código 2FA de un solo uso.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 11,

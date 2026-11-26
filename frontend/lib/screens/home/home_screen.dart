@@ -1021,7 +1021,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: const Icon(
-                              Icons.shield_rounded,
+                              Icons.fingerprint_rounded,
                               color: AppColors.success,
                               size: 26,
                             ),
@@ -1032,7 +1032,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Protección en 2 Pasos (2FA)',
+                                  'Protección Biométrica & 2FA',
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w800,
@@ -1041,7 +1041,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 SizedBox(height: 2),
                                 Text(
-                                  'Tus pagos se validan con código de un solo uso enviado a tu correo.',
+                                  'Autoriza tu acceso y tus pagos con huella digital o código de un solo uso.',
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: Color(0xFF6B7280),

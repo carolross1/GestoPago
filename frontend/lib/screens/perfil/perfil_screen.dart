@@ -1,13 +1,71 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/services/biometric_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/cuenta_provider.dart';
 import '../auth/login_screen.dart';
 
-class PerfilScreen extends StatelessWidget {
+class PerfilScreen extends StatefulWidget {
   final bool isEmbedded;
   const PerfilScreen({super.key, this.isEmbedded = false});
+
+  @override
+  State<PerfilScreen> createState() => _PerfilScreenState();
+}
+
+class _PerfilScreenState extends State<PerfilScreen> {
+  bool _biometriaSoportada = false;
+  bool _biometriaActiva = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarEstadoBiometria();
+  }
+
+  Future<void> _cargarEstadoBiometria() async {
+    final soportada = await BiometricService.instance.isBiometricAvailable();
+    final activa = soportada ? await BiometricService.instance.isBiometricEnabled() : false;
+    if (!mounted) return;
+    setState(() {
+      _biometriaSoportada = soportada;
+      _biometriaActiva = activa;
+    });
+  }
+
+  Future<void> _toggleBiometria(bool valor) async {
+    if (valor) {
+      final res = await BiometricService.instance.authenticate(
+        reason: 'Confirma tu huella digital para activar la biometría en GestoPago',
+      );
+      if (!mounted) return;
+      if (!res.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res.errorMessage ?? 'No se pudo activar la huella digital'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+    }
+    await BiometricService.instance.setBiometricEnabled(valor);
+    if (!mounted) return;
+    setState(() => _biometriaActiva = valor);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          valor
+              ? 'Huella digital activada para inicio de sesión y autorización de pagos.'
+              : 'Huella digital desactivada. Se usará contraseña y código 2FA.',
+        ),
+        backgroundColor: AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
 
   String _enmascararCuenta(String? cuenta) {
     if (cuenta == null || cuenta.isEmpty) return 'No asignada';
@@ -203,6 +261,52 @@ class PerfilScreen extends StatelessWidget {
                 ),
               ),
 
+              if (_biometriaSoportada) ...[
+                const SizedBox(height: 18),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    activeThumbColor: AppColors.accent,
+                    secondary: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.accentSoft,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.fingerprint_rounded,
+                        color: AppColors.accent,
+                        size: 24,
+                      ),
+                    ),
+                    title: const Text(
+                      'Seguridad Biométrica',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'Usar huella digital para iniciar sesión y autorizar pagos',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    value: _biometriaActiva,
+                    onChanged: _toggleBiometria,
+                  ),
+                ),
+              ],
+
               const SizedBox(height: 24),
 
               // Botón Cerrar Sesión
@@ -268,7 +372,7 @@ class PerfilScreen extends StatelessWidget {
         ),
       );
 
-    if (isEmbedded) {
+    if (widget.isEmbedded) {
       return bodyContent;
     }
 
