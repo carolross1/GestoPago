@@ -84,7 +84,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
             prefixIcon: widget.prefixIcon != null
                 ? Icon(
                     widget.prefixIcon,
-                    color: AppColors.textSecondary,
+                    color: AppColors.accent.withValues(alpha: 0.72),
                     size: 20,
                   )
                 : null,
@@ -105,28 +105,30 @@ class _CustomTextFieldState extends State<CustomTextField> {
                   )
                 : widget.suffixIcon,
             filled: true,
-            fillColor: AppColors.surface,
+            fillColor: widget.readOnly
+                ? const Color(0xFFF3F0FF)
+                : const Color(0xFFFAF9FF),
             contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.border, width: 1.5),
+              borderRadius: BorderRadius.circular(15),
+              borderSide: const BorderSide(color: Color(0xFFE7E1FF), width: 1.2),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.border, width: 1.5),
+              borderRadius: BorderRadius.circular(15),
+              borderSide: const BorderSide(color: Color(0xFFE7E1FF), width: 1.2),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.accent, width: 2),
+              borderRadius: BorderRadius.circular(15),
+              borderSide: const BorderSide(color: AppColors.accent, width: 1.8),
             ),
             errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.error, width: 1.5),
+              borderRadius: BorderRadius.circular(15),
+              borderSide: const BorderSide(color: AppColors.error, width: 1.3),
             ),
             focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.error, width: 2),
+              borderRadius: BorderRadius.circular(15),
+              borderSide: const BorderSide(color: AppColors.error, width: 1.8),
             ),
           ),
         ),

@@ -51,26 +51,54 @@ class _CatalogoServiciosScreenState extends State<CatalogoServiciosScreen> {
 
     final Widget bodyContent = Column(
       children: [
-        // Barra de búsqueda
+        // Barra de búsqueda elevada
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
-          child: TextField(
-            controller: _searchController,
-            onChanged: (val) => prodProv.filtrarBusqueda(val),
-            decoration: InputDecoration(
-              hintText: 'Buscar por servicio (CFE, Telcel, etc.)...',
-              prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary),
-              suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear_rounded, size: 20),
-                      onPressed: () {
-                        _searchController.clear();
-                        prodProv.filtrarBusqueda('');
-                      },
-                    )
-                  : null,
-              filled: true,
-              fillColor: AppColors.surface,
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF7C3AED).withValues(alpha: 0.06),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (val) => prodProv.filtrarBusqueda(val),
+              decoration: InputDecoration(
+                hintText: 'Buscar por servicio (CFE, Telcel, Netflix...)',
+                prefixIcon: Icon(
+                  Icons.search_rounded,
+                  color: AppColors.accent.withValues(alpha: 0.75),
+                ),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear_rounded, size: 20),
+                        onPressed: () {
+                          _searchController.clear();
+                          prodProv.filtrarBusqueda('');
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: Color(0xFFEDE9FE)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: Color(0xFFEDE9FE)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: AppColors.accent, width: 1.6),
+                ),
+              ),
             ),
           ),
         ),

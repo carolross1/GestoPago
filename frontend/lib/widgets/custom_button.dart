@@ -32,9 +32,10 @@ class CustomButton extends StatelessWidget {
         child: OutlinedButton(
           onPressed: isLoading ? null : onPressed,
           style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: AppColors.border, width: 1.5),
+            backgroundColor: Colors.white,
+            side: const BorderSide(color: Color(0xFFE5DEFF), width: 1.3),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
             ),
           ),
           child: isLoading
@@ -45,17 +46,22 @@ class CustomButton extends StatelessWidget {
                 )
               : Row(
                   mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     if (icon != null) ...[
                       Icon(icon, size: 18, color: AppColors.textPrimary),
                       const SizedBox(width: 8),
                     ],
-                    Text(
-                      text,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                    Flexible(
+                      child: Text(
+                        text,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                     ),
                   ],
@@ -64,44 +70,88 @@ class CustomButton extends StatelessWidget {
       );
     }
 
-    return SizedBox(
+    final disabled = isLoading || onPressed == null;
+    final useCustomSolid = backgroundColor != null;
+
+    return Container(
       width: effectiveWidth,
-      height: 52,
-      child: ElevatedButton(
-        onPressed: isLoading ? null : onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: backgroundColor ?? AppColors.primary,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+      height: 54,
+      decoration: BoxDecoration(
+        gradient: useCustomSolid
+            ? null
+            : LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: disabled
+                    ? [
+                        const Color(0xFF4C1D95).withValues(alpha: 0.45),
+                        const Color(0xFF7C3AED).withValues(alpha: 0.45),
+                      ]
+                    : const [
+                        Color(0xFF3B0764),
+                        Color(0xFF5B21B6),
+                        Color(0xFF7C3AED),
+                      ],
+              ),
+        color: useCustomSolid
+            ? (disabled ? backgroundColor!.withValues(alpha: 0.5) : backgroundColor)
+            : null,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: disabled
+            ? null
+            : [
+                BoxShadow(
+                  color: (backgroundColor ?? const Color(0xFF6D28D9))
+                      .withValues(alpha: 0.32),
+                  blurRadius: 18,
+                  spreadRadius: -3,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: disabled ? null : onPressed,
+          borderRadius: BorderRadius.circular(16),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: isLoading
+                  ? const SizedBox(
+                      width: 21,
+                      height: 21,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (icon != null) ...[
+                          Icon(icon, size: 19, color: Colors.white),
+                          const SizedBox(width: 8),
+                        ],
+                        Flexible(
+                          child: Text(
+                            text,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                              letterSpacing: 0.1,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
           ),
         ),
-        child: isLoading
-            ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (icon != null) ...[
-                    Icon(icon, size: 18, color: Colors.white),
-                    const SizedBox(width: 8),
-                  ],
-                  Text(
-                    text,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
       ),
     );
   }

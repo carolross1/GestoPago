@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
+import '../../widgets/gestopago_logo.dart';
 import '../home/home_screen.dart';
 import 'crear_cuenta_screen.dart';
 import 'registro_portal_screen.dart';
@@ -146,241 +147,308 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Brand Icon & Header
-                    Center(
-                      child: Container(
-                        width: 68,
-                        height: 68,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(18),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.2),
-                              blurRadius: 18,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.account_balance_wallet_rounded,
-                          size: 36,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Bienvenido a GestoPago',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Accede a tu banca digital y gestiona el pago de servicios de forma ágil y segura',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppColors.textSecondary,
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 36),
-
-                    // Card de Formulario
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppColors.border, width: 1),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.03),
-                            blurRadius: 16,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          CustomTextField(
-                            label: 'Correo electrónico',
-                            hint: 'ejemplo@banca.com',
-                            controller: _correoController,
-                            keyboardType: TextInputType.emailAddress,
-                            prefixIcon: Icons.mail_outline_rounded,
-                            validator: (val) {
-                              if (val == null || val.trim().isEmpty) {
-                                return 'Ingresa tu correo registrado';
-                              }
-                              if (!val.contains('@') || !val.contains('.')) {
-                                return 'Ingresa un correo electrónico válido';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 20),
-                          CustomTextField(
-                            label: 'Contraseña de portal',
-                            hint: 'Mínimo 8 caracteres',
-                            controller: _passwordController,
-                            isPassword: true,
-                            prefixIcon: Icons.lock_outline_rounded,
-                            validator: (val) {
-                              if (val == null || val.isEmpty) {
-                                return 'Ingresa tu contraseña';
-                              }
-                              if (val.length < 8) {
-                                return 'La contraseña debe tener al menos 8 caracteres';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 28),
-                          CustomButton(
-                            text: 'Iniciar Sesión',
-                            isLoading: _isLoading,
-                            onPressed: _handleLogin,
-                          ),
-                          if (_canUseBiometric) ...[
-                            const SizedBox(height: 14),
-                            OutlinedButton.icon(
-                              onPressed: _isLoading ? null : _handleBiometricLogin,
-                              icon: const Icon(
-                                Icons.fingerprint_rounded,
-                                size: 24,
-                                color: AppColors.accent,
-                              ),
-                              label: Text(
-                                _maskedBiometricEmail != null
-                                    ? 'Entrar con huella ($_maskedBiometricEmail)'
-                                    : 'Entrar con huella digital',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                  color: AppColors.accent,
-                                ),
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 14,
-                                  horizontal: 16,
-                                ),
-                                side: BorderSide(
-                                  color: AppColors.accent.withValues(alpha: 0.45),
-                                  width: 1.4,
-                                ),
-                                backgroundColor: AppColors.accentSoft.withValues(alpha: 0.5),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 22),
-
-                    // Crear Cuenta Nueva
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const CrearCuentaScreen(),
-                            ),
-                          );
-                        },
-                        icon: const Icon(
-                          Icons.person_add_alt_1_rounded,
-                          size: 20,
-                          color: AppColors.primary,
-                        ),
-                        label: const Text(
-                          '¿Eres nuevo? Crear Cuenta',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          side: const BorderSide(color: AppColors.border, width: 1.4),
-                          backgroundColor: AppColors.surface,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Opciones de Registro / Activación
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: [
-                        const Text(
-                          '¿Ya tienes cuenta pero sin contraseña?',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const RegistroPortalScreen(),
-                              ),
-                            );
-                          },
-                          child: const Text(
-                            'Activar portal',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.accent,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+      body: Stack(
+        children: [
+          // Fondo ambiental suave estilo Neo-Banco (esferas difusas lila/violeta)
+          Positioned(
+            top: -110,
+            right: -90,
+            child: Container(
+              width: 280,
+              height: 280,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF7C3AED).withValues(alpha: 0.16),
+                    const Color(0xFFA78BFA).withValues(alpha: 0.04),
+                    Colors.transparent,
                   ],
                 ),
               ),
             ),
           ),
-        ),
+          Positioned(
+            bottom: -120,
+            left: -100,
+            child: Container(
+              width: 320,
+              height: 320,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF8B5CF6).withValues(alpha: 0.13),
+                    const Color(0xFFEDE9FE).withValues(alpha: 0.03),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 28.0),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 430),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Logotipo vectorial GestoPago + Wordmark
+                        const Center(
+                          child: GestoPagoLogo(
+                            size: 68,
+                            showWordmark: true,
+                            subtitle: 'Banca Digital',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Gestiona y paga tus servicios al instante con seguridad biométrica',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            color: AppColors.textSecondary,
+                            height: 1.45,
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+
+                        // Card de Formulario Glass-White Elevada
+                        Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.94),
+                            borderRadius: BorderRadius.circular(26),
+                            border: Border.all(
+                              color: const Color(0xFFE9E3FF),
+                              width: 1.2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF5B21B6).withValues(alpha: 0.08),
+                                blurRadius: 34,
+                                spreadRadius: -6,
+                                offset: const Offset(0, 14),
+                              ),
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.02),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const Text(
+                                'Inicia sesión',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.textPrimary,
+                                  letterSpacing: -0.4,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'Ingresa tus credenciales de acceso al portal',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              CustomTextField(
+                                label: 'Correo electrónico',
+                                hint: 'tu.correo@ejemplo.com',
+                                controller: _correoController,
+                                keyboardType: TextInputType.emailAddress,
+                                prefixIcon: Icons.alternate_email_rounded,
+                                validator: (val) {
+                                  if (val == null || val.trim().isEmpty) {
+                                    return 'Ingresa tu correo registrado';
+                                  }
+                                  if (!val.contains('@') || !val.contains('.')) {
+                                    return 'Ingresa un correo electrónico válido';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 16),
+                              CustomTextField(
+                                label: 'Contraseña',
+                                hint: 'Mínimo 8 caracteres',
+                                controller: _passwordController,
+                                isPassword: true,
+                                prefixIcon: Icons.lock_outline_rounded,
+                                validator: (val) {
+                                  if (val == null || val.isEmpty) {
+                                    return 'Ingresa tu contraseña';
+                                  }
+                                  if (val.length < 8) {
+                                    return 'La contraseña debe tener al menos 8 caracteres';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 24),
+                              CustomButton(
+                                text: 'Iniciar Sesión',
+                                icon: Icons.arrow_forward_rounded,
+                                isLoading: _isLoading,
+                                onPressed: _handleLogin,
+                              ),
+                              if (_canUseBiometric) ...[
+                                const SizedBox(height: 12),
+                                OutlinedButton.icon(
+                                  onPressed: _isLoading ? null : _handleBiometricLogin,
+                                  icon: const Icon(
+                                    Icons.fingerprint_rounded,
+                                    size: 22,
+                                    color: AppColors.accent,
+                                  ),
+                                  label: Text(
+                                    _maskedBiometricEmail != null
+                                        ? 'Entrar con huella ($_maskedBiometricEmail)'
+                                        : 'Entrar con huella digital',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                      color: AppColors.accent,
+                                    ),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                      horizontal: 16,
+                                    ),
+                                    side: BorderSide(
+                                      color: AppColors.accent.withValues(alpha: 0.35),
+                                      width: 1.3,
+                                    ),
+                                    backgroundColor: AppColors.accentSoft.withValues(alpha: 0.45),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Crear Cuenta Nueva
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const CrearCuentaScreen(),
+                                ),
+                              );
+                            },
+                            icon: const Icon(
+                              Icons.person_add_alt_1_rounded,
+                              size: 19,
+                              color: AppColors.textPrimary,
+                            ),
+                            label: const Text(
+                              '¿Eres nuevo? Crear Cuenta',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 15),
+                              side: const BorderSide(color: Color(0xFFE5DEFF), width: 1.3),
+                              backgroundColor: Colors.white.withValues(alpha: 0.9),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 14),
+
+                        // Opciones de Activación
+                        Wrap(
+                          alignment: WrapAlignment.center,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: [
+                            const Text(
+                              '¿Ya tienes cuenta pero sin contraseña?',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const RegistroPortalScreen(),
+                                  ),
+                                );
+                              },
+                              child: const Text(
+                                'Activar portal',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.accent,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 22),
+
+                        // Sello discreto de seguridad
+                        const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.verified_user_outlined,
+                              size: 14,
+                              color: AppColors.success,
+                            ),
+                            SizedBox(width: 6),
+                            Text(
+                              'Conexión cifrada • Biometría & 2FA',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
