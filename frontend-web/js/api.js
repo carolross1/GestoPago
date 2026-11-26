@@ -106,6 +106,13 @@ const API = {
     });
   },
 
+  async crearCliente(payload) {
+    return this.request('/clientes', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  },
+
   // Clientes y Cuentas
   async buscarCliente(correo) {
     const resp = await this.request('/clientes/buscar', {

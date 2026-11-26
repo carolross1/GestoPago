@@ -44,22 +44,29 @@ const app = {
 
   setAuthTab(tab) {
     const tabLogin = document.getElementById('tab-login');
+    const tabCrear = document.getElementById('tab-crear');
     const tabReg = document.getElementById('tab-registro');
     const formLogin = document.getElementById('form-login');
+    const formCrear = document.getElementById('form-crear');
     const formReg = document.getElementById('form-registro');
+    const authCard = document.getElementById('auth-card');
     const alertBox = document.getElementById('auth-alert');
     alertBox.classList.add('hidden');
 
-    if (tab === 'login') {
-      tabLogin.className = 'flex-1 py-2.5 text-xs font-bold rounded-lg transition-all duration-200 bg-white text-brand-700 shadow-sm';
-      tabReg.className = 'flex-1 py-2.5 text-xs font-bold rounded-lg transition-all duration-200 text-slate-500 hover:text-slate-800';
-      formLogin.classList.remove('hidden');
-      formReg.classList.add('hidden');
-    } else {
-      tabReg.className = 'flex-1 py-2.5 text-xs font-bold rounded-lg transition-all duration-200 bg-white text-brand-700 shadow-sm';
-      tabLogin.className = 'flex-1 py-2.5 text-xs font-bold rounded-lg transition-all duration-200 text-slate-500 hover:text-slate-800';
-      formReg.classList.remove('hidden');
-      formLogin.classList.add('hidden');
+    const activeCls = 'flex-1 py-2.5 text-xs font-bold rounded-lg transition-all duration-200 bg-white text-brand-700 shadow-sm';
+    const inactiveCls = 'flex-1 py-2.5 text-xs font-bold rounded-lg transition-all duration-200 text-slate-500 hover:text-slate-800';
+
+    tabLogin.className = tab === 'login' ? activeCls : inactiveCls;
+    if (tabCrear) tabCrear.className = tab === 'crear' ? activeCls : inactiveCls;
+    tabReg.className = tab === 'registro' ? activeCls : inactiveCls;
+
+    formLogin.classList.toggle('hidden', tab !== 'login');
+    if (formCrear) formCrear.classList.toggle('hidden', tab !== 'crear');
+    formReg.classList.toggle('hidden', tab !== 'registro');
+
+    if (authCard) {
+      authCard.classList.toggle('max-w-2xl', tab === 'crear');
+      authCard.classList.toggle('max-w-md', tab !== 'crear');
     }
     if (window.lucide) lucide.createIcons();
   },
@@ -139,6 +146,84 @@ const app = {
     } finally {
       btn.disabled = false;
       btn.innerHTML = `<span>Ingresar al Portal</span> <i data-lucide="arrow-right" class="w-4 h-4"></i>`;
+      if (window.lucide) lucide.createIcons();
+    }
+  },
+
+  async handleCrearCuenta(e) {
+    e.preventDefault();
+    const pass = document.getElementById('new-password').value;
+    const passConf = document.getElementById('new-password-confirm').value;
+    const btn = document.getElementById('btn-crear-submit');
+
+    if (pass !== passConf) {
+      this.mostrarAlertaAuth('error', 'Las contraseñas no coinciden');
+      return;
+    }
+
+    const limpiar = (v) => (v || '').trim().replace(/\s+/g, ' ');
+    const fechaRaw = document.getElementById('new-fecha-nac').value; // yyyy-MM-dd
+    const fechaFormateada = fechaRaw ? fechaRaw.replace(/-/g, '/') : '';
+    const correo = document.getElementById('new-email').value.trim().toLowerCase();
+
+    const payload = {
+      nombre: limpiar(document.getElementById('new-nombre').value),
+      apellidoPaterno: limpiar(document.getElementById('new-ap-paterno').value),
+      apellidoMaterno: limpiar(document.getElementById('new-ap-materno').value),
+      fechaNacimiento: fechaFormateada,
+      curp: document.getElementById('new-curp').value.trim().toUpperCase(),
+      rfc: document.getElementById('new-rfc').value.trim().toUpperCase(),
+      sexo: document.getElementById('new-sexo').value,
+      nacionalidad: document.getElementById('new-nacionalidad').value,
+      estadoCivil: document.getElementById('new-estado-civil').value,
+      correo,
+      telefonoMovil: Number(document.getElementById('new-telefono').value.trim()),
+      domicilio: {
+        calle: limpiar(document.getElementById('new-calle').value),
+        numeroExterior: Number(document.getElementById('new-num-ext').value),
+        colonia: limpiar(document.getElementById('new-colonia').value),
+        municipio: limpiar(document.getElementById('new-municipio').value),
+        estado: limpiar(document.getElementById('new-estado').value),
+        codigoPostal: Number(document.getElementById('new-cp').value),
+        pais: limpiar(document.getElementById('new-pais').value)
+      },
+      ocupacion: limpiar(document.getElementById('new-ocupacion').value),
+      empresa: limpiar(document.getElementById('new-empresa').value),
+      ingresoMensual: Number(document.getElementById('new-ingreso').value).toFixed(2)
+    };
+
+    const segNombre = limpiar(document.getElementById('new-segundo-nombre').value);
+    if (segNombre) payload.segundoNombre = segNombre;
+
+    btn.disabled = true;
+    btn.innerHTML = `<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span> <span>Creando cuenta...</span>`;
+
+    try {
+      const respCliente = await API.crearCliente(payload);
+      if (!respCliente.ok) {
+        const msg = (respCliente.errores && respCliente.errores.length > 0)
+          ? respCliente.errores.join(' • ')
+          : (respCliente.mensaje || 'No se pudo crear el cliente. Revisa tus datos.');
+        this.mostrarAlertaAuth('error', msg);
+        return;
+      }
+
+      const numCuenta = respCliente.data?.numeroCuenta || '';
+      const respPortal = await API.registrar(correo, pass);
+      if (!respPortal.ok) {
+        this.mostrarAlertaAuth('error', `Cuenta ${numCuenta} creada, pero falló la contraseña: ${respPortal.mensaje}`);
+        return;
+      }
+
+      this.mostrarAlertaAuth('success', `¡Cuenta creada exitosamente! Número de cuenta asignado: ${numCuenta}. Ya puedes iniciar sesión.`);
+      document.getElementById('form-crear').reset();
+      document.getElementById('login-email').value = correo;
+      setTimeout(() => this.setAuthTab('login'), 2500);
+    } catch (err) {
+      this.mostrarAlertaAuth('error', err.message || 'Error al crear cuenta');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = `<span>Crear Cuenta y Activar Acceso</span> <i data-lucide="user-plus" class="w-4 h-4"></i>`;
       if (window.lucide) lucide.createIcons();
     }
   },

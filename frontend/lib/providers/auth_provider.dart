@@ -100,6 +100,73 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Crea un nuevo cliente (con domicilio y cuenta bancaria) y activa su contraseña del portal.
+  Future<({bool exito, String? numeroCuenta, String? error})> crearCuentaCompleta({
+    required Map<String, dynamic> clientePayload,
+    required String password,
+  }) async {
+    _errorMessage = null;
+    notifyListeners();
+
+    final respCliente = await _api.post<Map<String, dynamic>>(
+      ApiConstants.crearCliente,
+      body: clientePayload,
+      fromJson: (json) => json is Map<String, dynamic> ? json : <String, dynamic>{},
+    );
+
+    if (!respCliente.exito) {
+      final detalle = respCliente.errores.isNotEmpty
+          ? respCliente.errores.join('\n')
+          : (respCliente.mensaje.isNotEmpty
+              ? respCliente.mensaje
+              : 'No se pudo crear la cuenta. Revisa tus datos.');
+      _errorMessage = detalle;
+      notifyListeners();
+      return (exito: false, numeroCuenta: null, error: detalle);
+    }
+
+    final numeroCuenta = respCliente.datos?['numeroCuenta']?.toString();
+    final correo = (clientePayload['correo'] as String).trim().toLowerCase();
+
+    final respPortal = await _api.post<void>(
+      ApiConstants.registroPortal,
+      body: RegistroLoginRequest(correo: correo, password: password).toJson(),
+    );
+
+    if (!respPortal.exito) {
+      final detalle = respPortal.mensaje.isNotEmpty
+          ? 'Tu cliente y cuenta ($numeroCuenta) fueron creados, pero ocurrió un error al activar tu contraseña: ${respPortal.mensaje}'
+          : 'Tu cliente fue creado, pero no se pudo registrar la contraseña. Usa "Activar portal".';
+      _errorMessage = detalle;
+      notifyListeners();
+      return (exito: false, numeroCuenta: numeroCuenta, error: detalle);
+    }
+
+    return (exito: true, numeroCuenta: numeroCuenta, error: null);
+  }
+
+  Future<List<Map<String, String>>> obtenerNacionalidades() async {
+    final response = await _api.get<List<dynamic>>(ApiConstants.nacionalidades);
+    if (response.exito && response.datos != null && response.datos!.isNotEmpty) {
+      return response.datos!
+          .whereType<Map<String, dynamic>>()
+          .map((e) => {
+                'codigo': (e['codigo'] ?? '').toString(),
+                'nombre': (e['nombre'] ?? '').toString(),
+              })
+          .where((e) => e['codigo']!.isNotEmpty && e['nombre']!.isNotEmpty)
+          .toList();
+    }
+    return const [
+      {'codigo': 'MEX', 'nombre': 'México'},
+      {'codigo': 'USA', 'nombre': 'Estados Unidos'},
+      {'codigo': 'CAN', 'nombre': 'Canadá'},
+      {'codigo': 'COL', 'nombre': 'Colombia'},
+      {'codigo': 'ESP', 'nombre': 'España'},
+      {'codigo': 'ARG', 'nombre': 'Argentina'},
+    ];
+  }
+
   Future<bool> _cargarPerfilCliente(String correo) async {
     final response = await _api.post<List<ClienteResponse>>(
       ApiConstants.buscarClientes,

@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
 import '../home/home_screen.dart';
+import 'crear_cuenta_screen.dart';
 import 'registro_portal_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -300,7 +301,45 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 22),
+
+                    // Crear Cuenta Nueva
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const CrearCuentaScreen(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(
+                          Icons.person_add_alt_1_rounded,
+                          size: 20,
+                          color: AppColors.primary,
+                        ),
+                        label: const Text(
+                          '¿Eres nuevo? Crear Cuenta',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          side: const BorderSide(color: AppColors.border, width: 1.4),
+                          backgroundColor: AppColors.surface,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
 
                     // Opciones de Registro / Activación
                     Wrap(
@@ -310,7 +349,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       runSpacing: 4,
                       children: [
                         const Text(
-                          '¿Tienes cuenta pero no contraseña?',
+                          '¿Ya tienes cuenta pero sin contraseña?',
                           style: TextStyle(
                             fontSize: 13,
                             color: AppColors.textSecondary,
