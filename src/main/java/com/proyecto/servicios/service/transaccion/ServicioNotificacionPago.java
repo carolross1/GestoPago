@@ -36,6 +36,12 @@ public class ServicioNotificacionPago {
     @Value("${mail.brevo.api-key:}")
     private String brevoApiKey;
 
+    @Value("${mail.webhook.url:}")
+    private String mailWebhookUrl;
+
+    @Value("${mail.webhook.secret:}")
+    private String mailWebhookSecret;
+
     /**
      * Plantilla de la URL del logo. Marcadores soportados:
      * {idProducto}, {idServicio}, {servicio}, {producto}.
@@ -72,6 +78,10 @@ public class ServicioNotificacionPago {
 
         String asunto = "Comprobante de compra - " + datos.getServicio() + " [UPC: " + datos.getUpc() + "]";
         String cuerpoHtml = construirCuerpoHtml(datos);
+
+        if (EnviadorCorreoHttp.enviarPorWebhook(mailWebhookUrl, mailWebhookSecret, datos.getCorreoDestino(), asunto, cuerpoHtml)) {
+            return;
+        }
 
         if (EnviadorCorreoHttp.enviarPorBrevo(brevoApiKey, remitente, datos.getCorreoDestino(), asunto, cuerpoHtml)) {
             return;
@@ -125,8 +135,8 @@ public class ServicioNotificacionPago {
                 + "<body style='font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6; margin: 0; padding: 24px; color: #1f2937;'>"
                 + "  <table width='100%' cellpadding='0' cellspacing='0' style='max-width: 560px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08);'>"
                 + "    <tr>"
-                + "      <td style='background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%); padding: 28px 24px; text-align: center; color: #ffffff;'>"
-                + "        <img src='" + urlLogo + "' alt='" + servicio + "' width='64' height='64' style='display: block; margin: 0 auto 12px auto; border-radius: 8px; background: #ffffff; object-fit: contain; padding: 4px; box-sizing: border-box;' />"
+                + "      <td style='background: linear-gradient(135deg, #2E1065 0%, #5B21B6 55%, #7C3AED 100%); padding: 28px 24px; text-align: center; color: #ffffff;'>"
+                + "        <img src='" + urlLogo + "' alt='" + servicio + "' width='64' height='64' style='display: block; margin: 0 auto 12px auto; border-radius: 12px; background: #ffffff; object-fit: contain; padding: 6px; box-sizing: border-box;' />"
                 + "        <h1 style='margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0.5px;'>Comprobante de Pago</h1>"
                 + "        <p style='margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;'>GestoPago &bull; Transacción exitosa</p>"
                 + "      </td>"
@@ -140,7 +150,7 @@ public class ServicioNotificacionPago {
                 + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280;'>Producto:</td><td style='padding: 10px 0; text-align: right;'>" + producto + "</td></tr>"
                 + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280;'>Destino / Referencia:</td><td style='padding: 10px 0; font-weight: 600; text-align: right;'>" + destino + "</td></tr>"
                 + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280;'>Cuenta origen:</td><td style='padding: 10px 0; text-align: right;'>" + cuenta + "</td></tr>"
-                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280;'>Folio UPC:</td><td style='padding: 10px 0; font-family: monospace; font-size: 14px; font-weight: 700; color: #0d47a1; text-align: right;'>" + upc + "</td></tr>"
+                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280;'>Folio UPC:</td><td style='padding: 10px 0; font-family: monospace; font-size: 14px; font-weight: 700; color: #5B21B6; text-align: right;'>" + upc + "</td></tr>"
                 + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280;'>No. de autorización:</td><td style='padding: 10px 0; text-align: right;'>" + autorizacion + "</td></tr>"
                 + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280;'>ID Transacción GestoPago:</td><td style='padding: 10px 0; text-align: right;'>" + idTx + "</td></tr>"
                 + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280;'>Fecha y hora:</td><td style='padding: 10px 0; text-align: right;'>" + fecha + " " + hora + "</td></tr>"

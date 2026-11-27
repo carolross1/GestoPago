@@ -36,6 +36,12 @@ public class ServicioNotificacion2FA {
     @Value("${mail.brevo.api-key:}")
     private String brevoApiKey;
 
+    @Value("${mail.webhook.url:}")
+    private String mailWebhookUrl;
+
+    @Value("${mail.webhook.secret:}")
+    private String mailWebhookSecret;
+
     // Fallback en memoria en caso de que Redis no este corriendo en local
     private final Map<String, EntradaCodigo2FA> cacheMemoria = new ConcurrentHashMap<>();
 
@@ -156,7 +162,11 @@ public class ServicioNotificacion2FA {
                 </body></html>
                 """.formatted(cuentaEnmascarada, codigo, expiracionMinutos);
 
-        String asunto = "Código 2FA - Autorización de Pago";
+        String asunto = "Código 2FA - Autorización de Pago GestoPago";
+
+        if (EnviadorCorreoHttp.enviarPorWebhook(mailWebhookUrl, mailWebhookSecret, correoDestino, asunto, html)) {
+            return;
+        }
 
         if (EnviadorCorreoHttp.enviarPorBrevo(brevoApiKey, remitente, correoDestino, asunto, html)) {
             return;
