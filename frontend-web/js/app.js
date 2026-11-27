@@ -42,6 +42,17 @@ const app = {
     this.actualizarUIUsuario();
   },
 
+  togglePasswordVisibility(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    const mostrar = input.type === 'password';
+    input.type = mostrar ? 'text' : 'password';
+    if (btn) {
+      btn.innerHTML = `<i data-lucide="${mostrar ? 'eye-off' : 'eye'}" class="w-4 h-4"></i>`;
+      if (window.lucide) lucide.createIcons();
+    }
+  },
+
   setAuthTab(tab) {
     const tabLogin = document.getElementById('tab-login');
     const tabCrear = document.getElementById('tab-crear');
