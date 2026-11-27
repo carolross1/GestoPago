@@ -14,8 +14,9 @@ COPY gradle ./gradle
 RUN sed -i 's/\r$//' gradlew && chmod +x gradlew
 RUN ./gradlew --no-daemon dependencies > /dev/null 2>&1 || true
 
-# Codigo fuente y compilacion (las pruebas se corren en local, no en el deploy)
+# Codigo fuente, Portal Web y compilacion (las pruebas se corren en local, no en el deploy)
 COPY src ./src
+COPY frontend-web ./frontend-web
 RUN ./gradlew --no-daemon bootJar -x test
 RUN find build/libs -name "*.jar" ! -name "*-plain.jar" -exec cp {} /app/app.jar \;
 

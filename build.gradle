@@ -105,6 +105,13 @@ springBoot {
     }
 }
 
+processResources {
+    from('frontend-web') {
+        include 'index.html', 'css/**', 'js/**', 'img/**'
+        into 'static'
+    }
+}
+
 sonarqube {
     properties {
         property "sonar.exclusions", "**/App.java,**/model/**,**/entity/**,**/enums/**,**/controller/**,**/service/configuracion/**,**/exception/**,**/repositorys/**,**/mapper/**"
