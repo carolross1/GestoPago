@@ -113,6 +113,36 @@ const API = {
     });
   },
 
+  async consultarCodigoPostal(cp) {
+    const resp = await this.request(`/catalogos/cp/${encodeURIComponent(cp)}`, {
+      method: 'GET'
+    });
+    if (resp.ok && resp.data) {
+      return { ok: true, data: resp.data };
+    }
+    // Respaldo directo a Zippopotam si el backend aún está desplegando
+    try {
+      const r = await fetch(`https://api.zippopotam.us/mx/${encodeURIComponent(cp)}`);
+      if (!r.ok) return { ok: false, data: null };
+      const j = await r.json();
+      const places = j.places || [];
+      if (!places.length) return { ok: false, data: null };
+      let estado = places[0].state || '';
+      if (estado.toLowerCase() === 'distrito federal') estado = 'Ciudad de Mexico';
+      const colonias = [...new Set(places.map(p => (p['place name'] || '').trim()).filter(Boolean))];
+      return {
+        ok: true,
+        data: { codigoPostal: cp, pais: 'Mexico', estado, municipio: estado, colonias }
+      };
+    } catch (_) {
+      return { ok: false, data: null };
+    }
+  },
+
+  async obtenerProfesiones() {
+    return this.request('/catalogos/profesiones', { method: 'GET' });
+  },
+
   // Clientes y Cuentas
   async buscarCliente(correo) {
     const resp = await this.request('/clientes/buscar', {

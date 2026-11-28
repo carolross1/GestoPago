@@ -10,10 +10,40 @@ const app = {
   referenciaValidada: false,
   datosValidacion: null,
   pagoPendiente: null,
+  ultimoCpConsultado: '',
+  tabuladoresSueldo: [
+    { id: 'TAB_1', etiqueta: 'De $0 a $10,000 MXN', minimo: 0.01, maximo: 10000 },
+    { id: 'TAB_2', etiqueta: 'De $10,001 a $25,000 MXN', minimo: 10001, maximo: 25000 },
+    { id: 'TAB_3', etiqueta: 'De $25,001 a $50,000 MXN', minimo: 25001, maximo: 50000 },
+    { id: 'TAB_4', etiqueta: 'De $50,001 a $100,000 MXN', minimo: 50001, maximo: 100000 },
+    { id: 'TAB_5', etiqueta: 'De $100,001 a $250,000 MXN', minimo: 100001, maximo: 250000 }
+  ],
+  catalogoProfesiones: [
+    { nombre: 'Estudiante', categoria: 'Educación', tabuladorSugerido: 'TAB_1' },
+    { nombre: 'Trabajo del Hogar', categoria: 'Servicios', tabuladorSugerido: 'TAB_1' },
+    { nombre: 'Jubilado o Pensionado', categoria: 'Pensiones', tabuladorSugerido: 'TAB_1' },
+    { nombre: 'Auxiliar Administrativo', categoria: 'Administración', tabuladorSugerido: 'TAB_2' },
+    { nombre: 'Comerciante', categoria: 'Comercio', tabuladorSugerido: 'TAB_2' },
+    { nombre: 'Docente o Profesor', categoria: 'Educación', tabuladorSugerido: 'TAB_2' },
+    { nombre: 'Enfermero', categoria: 'Salud', tabuladorSugerido: 'TAB_2' },
+    { nombre: 'Disenador Grafico o Digital', categoria: 'Creatividad', tabuladorSugerido: 'TAB_2' },
+    { nombre: 'Contador Publico', categoria: 'Finanzas', tabuladorSugerido: 'TAB_3' },
+    { nombre: 'Abogado', categoria: 'Derecho', tabuladorSugerido: 'TAB_3' },
+    { nombre: 'Arquitecto', categoria: 'Construcción', tabuladorSugerido: 'TAB_3' },
+    { nombre: 'Ingeniero en Sistemas', categoria: 'Tecnología', tabuladorSugerido: 'TAB_3' },
+    { nombre: 'Desarrollador de Software', categoria: 'Tecnología', tabuladorSugerido: 'TAB_3' },
+    { nombre: 'Medico General o Especialista', categoria: 'Salud', tabuladorSugerido: 'TAB_4' },
+    { nombre: 'Empresario', categoria: 'Dirección', tabuladorSugerido: 'TAB_4' },
+    { nombre: 'Director Ejecutivo', categoria: 'Dirección', tabuladorSugerido: 'TAB_5' }
+  ],
 
   init() {
     this.usuario = API.getUsuario();
     this.cuenta = API.getCuenta();
+
+    this.poblarCatalogoProfesionesUI();
+    this.cargarCatalogoProfesionesRemoto();
+    this.configurarValidacionesEnVivo();
 
     const token = API.getToken();
     if (token && this.usuario) {
@@ -26,6 +56,281 @@ const app = {
     if (window.lucide) {
       lucide.createIcons();
     }
+  },
+
+  getTabuladorActual() {
+    const sel = document.getElementById('new-tabulador');
+    const id = sel ? sel.value : 'TAB_1';
+    return this.tabuladoresSueldo.find(t => t.id === id) || this.tabuladoresSueldo[0];
+  },
+
+  poblarCatalogoProfesionesUI() {
+    const selProf = document.getElementById('new-ocupacion');
+    const selTab = document.getElementById('new-tabulador');
+    if (selProf) {
+      const actual = selProf.value;
+      selProf.innerHTML = this.catalogoProfesiones
+        .map(p => `<option value="${p.nombre}">${p.nombre} (${p.categoria})</option>`)
+        .join('');
+      if (actual && this.catalogoProfesiones.some(p => p.nombre === actual)) {
+        selProf.value = actual;
+      }
+    }
+    if (selTab) {
+      const actualTab = selTab.value;
+      selTab.innerHTML = this.tabuladoresSueldo
+        .map(t => `<option value="${t.id}">${t.etiqueta}</option>`)
+        .join('');
+      if (actualTab && this.tabuladoresSueldo.some(t => t.id === actualTab)) {
+        selTab.value = actualTab;
+      }
+    }
+    this.actualizarHintTabulador();
+  },
+
+  async cargarCatalogoProfesionesRemoto() {
+    const resp = await API.obtenerProfesiones();
+    if (resp.ok && resp.data) {
+      if (Array.isArray(resp.data.tabuladores) && resp.data.tabuladores.length) {
+        this.tabuladoresSueldo = resp.data.tabuladores.map(t => ({
+          id: t.id,
+          etiqueta: t.etiqueta,
+          minimo: Number(t.minimo),
+          maximo: Number(t.maximo)
+        }));
+      }
+      if (Array.isArray(resp.data.profesiones) && resp.data.profesiones.length) {
+        this.catalogoProfesiones = resp.data.profesiones;
+      }
+      this.poblarCatalogoProfesionesUI();
+    }
+  },
+
+  handleProfesionChange() {
+    const selProf = document.getElementById('new-ocupacion');
+    const selTab = document.getElementById('new-tabulador');
+    if (!selProf || !selTab) return;
+    const prof = this.catalogoProfesiones.find(p => p.nombre === selProf.value);
+    if (prof && prof.tabuladorSugerido && this.tabuladoresSueldo.some(t => t.id === prof.tabuladorSugerido)) {
+      selTab.value = prof.tabuladorSugerido;
+    }
+    this.handleTabuladorChange();
+  },
+
+  handleTabuladorChange() {
+    this.actualizarHintTabulador();
+    const ingEl = document.getElementById('new-ingreso');
+    if (ingEl && ingEl.value) {
+      const tab = this.getTabuladorActual();
+      if (Number(ingEl.value) > tab.maximo) {
+        ingEl.value = '';
+      }
+      if (ingEl._liveValidate) ingEl._liveValidate();
+    }
+  },
+
+  actualizarHintTabulador() {
+    const tab = this.getTabuladorActual();
+    const hint = document.getElementById('tabulador-rango-hint');
+    const ingEl = document.getElementById('new-ingreso');
+    if (hint && tab) {
+      hint.textContent = `Rango permitido: $${tab.minimo.toLocaleString('es-MX')} a $${tab.maximo.toLocaleString('es-MX')} MXN (no puedes exceder el límite)`;
+    }
+    if (ingEl && tab) {
+      ingEl.placeholder = `Entre $${Math.floor(tab.minimo)} y $${tab.maximo}`;
+    }
+  },
+
+  handleColoniaSelectChange() {
+    const sel = document.getElementById('new-colonia-select');
+    const input = document.getElementById('new-colonia');
+    if (!sel || !input) return;
+    if (sel.value === '__OTRA__') {
+      input.classList.remove('hidden');
+      input.value = '';
+      input.focus();
+    } else {
+      input.value = sel.value;
+      input.classList.add('hidden');
+      if (input._liveValidate) input._liveValidate();
+    }
+  },
+
+  async consultarCpWeb(cp) {
+    const limpio = (cp || '').trim();
+    const msgEl = document.getElementById('cp-status-msg');
+    if (limpio.length !== 5 || !/^\d{5}$/.test(limpio)) {
+      if (msgEl) msgEl.classList.add('hidden');
+      this.ultimoCpConsultado = '';
+      return;
+    }
+    if (limpio === this.ultimoCpConsultado) return;
+    this.ultimoCpConsultado = limpio;
+
+    if (msgEl) {
+      msgEl.className = 'text-[11px] font-semibold mt-1 text-brand-700';
+      msgEl.textContent = 'Buscando dirección por código postal...';
+      msgEl.classList.remove('hidden');
+    }
+
+    const resp = await API.consultarCodigoPostal(limpio);
+    const estEl = document.getElementById('new-estado');
+    const munEl = document.getElementById('new-municipio');
+    const paisEl = document.getElementById('new-pais');
+    const colSel = document.getElementById('new-colonia-select');
+    const colInput = document.getElementById('new-colonia');
+
+    if (resp.ok && resp.data) {
+      const { estado, municipio, pais, colonias } = resp.data;
+      if (estEl) { estEl.value = estado || ''; if (estEl._liveValidate) estEl._liveValidate(); }
+      if (munEl) { munEl.value = municipio || estado || ''; if (munEl._liveValidate) munEl._liveValidate(); }
+      if (paisEl) { paisEl.value = pais || 'Mexico'; if (paisEl._liveValidate) paisEl._liveValidate(); }
+
+      if (Array.isArray(colonias) && colonias.length > 0 && colSel && colInput) {
+        colSel.innerHTML = colonias.map(c => `<option value="${c}">${c}</option>`).join('')
+          + `<option value="__OTRA__">Otra colonia (escribir manualmente)...</option>`;
+        colSel.classList.remove('hidden');
+        colSel.value = colonias[0];
+        colInput.value = colonias[0];
+        colInput.classList.add('hidden');
+        if (colInput._liveValidate) colInput._liveValidate();
+      } else if (colSel && colInput) {
+        colSel.classList.add('hidden');
+        colInput.classList.remove('hidden');
+      }
+
+      if (msgEl) {
+        msgEl.className = 'text-[11px] font-semibold mt-1 text-emerald-600';
+        msgEl.textContent = `✓ Dirección autocompletada (${(colonias || []).length} colonias en ${estado || 'México'}).`;
+      }
+    } else {
+      if (colSel && colInput) {
+        colSel.classList.add('hidden');
+        colInput.classList.remove('hidden');
+      }
+      if (msgEl) {
+        msgEl.className = 'text-[11px] font-semibold mt-1 text-amber-600';
+        msgEl.textContent = 'CP no encontrado automáticamente; puedes escribir los datos manualmente.';
+      }
+    }
+  },
+
+  configurarValidacionesEnVivo() {
+    if (typeof Validators === 'undefined') return;
+
+    // Login
+    Validators.bind('login-email', v => Validators.correo(v));
+    Validators.bind('login-password', v => Validators.password(v));
+
+    // Activar Portal
+    Validators.bind('reg-email', v => Validators.correo(v));
+    Validators.bind('reg-password', v => {
+      const conf = document.getElementById('reg-password-confirm');
+      if (conf && conf.value && conf._liveValidate) conf._liveValidate();
+      return Validators.password(v);
+    });
+    Validators.bind('reg-password-confirm', v =>
+      Validators.confirmarPassword(v, document.getElementById('reg-password')?.value || '')
+    );
+
+    // Crear Cuenta
+    Validators.bind('new-nombre', v => Validators.primerNombre(v), {
+      transform: v => v.replace(/\s+/g, '')
+    });
+    Validators.bind('new-segundo-nombre', v => Validators.segundoNombre(v), {
+      opcional: true,
+      transform: v => v.replace(/\s+/g, '')
+    });
+    Validators.bind('new-ap-paterno', v => Validators.apellido(v, 'tu apellido paterno'));
+    Validators.bind('new-ap-materno', v => Validators.apellido(v, 'tu apellido materno'));
+    Validators.bind('new-fecha-nac', v => Validators.fechaNacimiento(v));
+    Validators.bind('new-curp', v => Validators.curp(v), {
+      transform: v => v.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 18)
+    });
+    Validators.bind('new-rfc', v => Validators.rfc(v), {
+      transform: v => v.replace(/[^A-Za-zÑñ&0-9]/g, '').toUpperCase().slice(0, 13)
+    });
+    Validators.bind('new-cp', v => Validators.codigoPostal(v), {
+      transform: v => v.replace(/\D/g, '').slice(0, 5),
+      onValid: v => this.consultarCpWeb(v)
+    });
+    Validators.bind('new-colonia', v => Validators.textoDir(v, 'tu colonia'));
+    Validators.bind('new-municipio', v => Validators.soloLetras(v, 'tu municipio'));
+    Validators.bind('new-estado', v => Validators.soloLetras(v, 'tu estado'));
+    Validators.bind('new-calle', v => Validators.textoDir(v, 'tu calle'));
+    Validators.bind('new-num-ext', v => Validators.numeroDomicilio(v), {
+      transform: v => v.replace(/\D/g, '').slice(0, 6)
+    });
+    Validators.bind('new-pais', v => Validators.soloLetras(v, 'tu país'));
+    Validators.bind('new-empresa', v => Validators.soloLetras(v, 'tu empresa o institución'));
+    Validators.bind('new-ingreso', v => {
+      const tab = this.getTabuladorActual();
+      return Validators.ingresoEnRango(v, tab.minimo, tab.maximo);
+    }, {
+      transform: v => {
+        const limpio = v.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+        const partes = limpio.split('.');
+        const acotado = partes.length > 1 ? `${partes[0]}.${partes[1].slice(0, 2)}` : limpio;
+        const tab = this.getTabuladorActual();
+        if (acotado && Number(acotado) > tab.maximo) {
+          return String(tab.maximo);
+        }
+        return acotado;
+      }
+    });
+    Validators.bind('new-email', v => Validators.correo(v));
+    Validators.bind('new-telefono', v => Validators.telefonoMexico(v), {
+      transform: v => v.replace(/\D/g, '').slice(0, 10)
+    });
+    Validators.bind('new-password', v => {
+      const conf = document.getElementById('new-password-confirm');
+      if (conf && conf.value && conf._liveValidate) conf._liveValidate();
+      return Validators.password(v);
+    });
+    Validators.bind('new-password-confirm', v =>
+      Validators.confirmarPassword(v, document.getElementById('new-password')?.value || '')
+    );
+
+    // Pago de servicios y 2FA
+    Validators.bind('pago-input-destino', v => {
+      const tipoFront = Number(document.getElementById('pago-tipo-front')?.value || 1);
+      if (tipoFront === 1) return Validators.telefonoMexico(v);
+      const s = (v || '').trim();
+      if (!s) return 'Ingresa la referencia del recibo';
+      if (s.length < 5) return `Mínimo 5 caracteres (llevas ${s.length})`;
+      if (/^(.)\1{4,}$/.test(s)) return 'No puede ser un solo carácter repetido';
+      return null;
+    });
+    Validators.bind('pago-input-monto', v => {
+      const n = Number(v);
+      const saldo = Number(this.cuenta?.saldoActual || 0);
+      if (!v || Number.isNaN(n) || n <= 0) return 'Ingresa un monto mayor a $0.00';
+      if (this.precioFijoActual && Math.abs(n - this.precioFijoActual) > 0.01) {
+        return `Este paquete tiene precio fijo de ${this.formatoMoneda(this.precioFijoActual)}`;
+      }
+      if (n > saldo) return `Excede tu saldo disponible (${this.formatoMoneda(saldo)})`;
+      return null;
+    });
+    Validators.bind('input-codigo-2fa', v => {
+      const s = (v || '').trim();
+      if (!s) return 'Ingresa el código de 6 dígitos';
+      if (!/^\d+$/.test(s)) return 'Solo dígitos numéricos';
+      if (s.length < 6) return `Faltan ${6 - s.length} dígitos`;
+      return null;
+    }, {
+      transform: v => v.replace(/\D/g, '').slice(0, 6)
+    });
+  },
+
+  validarCampos(ids) {
+    let todoOk = true;
+    for (const id of ids) {
+      const el = document.getElementById(id);
+      if (el && typeof el._liveValidate === 'function') {
+        if (!el._liveValidate()) todoOk = false;
+      }
+    }
+    return todoOk;
   },
 
   // -------------------------------------------------------------
@@ -118,6 +423,10 @@ const app = {
   // -------------------------------------------------------------
   async handleLogin(e) {
     e.preventDefault();
+    if (!this.validarCampos(['login-email', 'login-password'])) {
+      this.mostrarAlertaAuth('error', 'Revisa los campos marcados en rojo antes de continuar.');
+      return;
+    }
     const email = document.getElementById('login-email').value.trim();
     const password = document.getElementById('login-password').value;
     const btn = document.getElementById('btn-login-submit');
@@ -163,6 +472,17 @@ const app = {
 
   async handleCrearCuenta(e) {
     e.preventDefault();
+    const camposCrear = [
+      'new-nombre', 'new-segundo-nombre', 'new-ap-paterno', 'new-ap-materno',
+      'new-fecha-nac', 'new-curp', 'new-rfc', 'new-cp', 'new-colonia',
+      'new-municipio', 'new-estado', 'new-calle', 'new-num-ext', 'new-pais',
+      'new-empresa', 'new-ingreso', 'new-email', 'new-telefono',
+      'new-password', 'new-password-confirm'
+    ];
+    if (!this.validarCampos(camposCrear)) {
+      this.mostrarAlertaAuth('error', 'Corrige los campos marcados en rojo antes de enviar.');
+      return;
+    }
     const pass = document.getElementById('new-password').value;
     const passConf = document.getElementById('new-password-confirm').value;
     const btn = document.getElementById('btn-crear-submit');
@@ -241,6 +561,10 @@ const app = {
 
   async handleRegistro(e) {
     e.preventDefault();
+    if (!this.validarCampos(['reg-email', 'reg-password', 'reg-password-confirm'])) {
+      this.mostrarAlertaAuth('error', 'Revisa los campos marcados en rojo.');
+      return;
+    }
     const email = document.getElementById('reg-email').value.trim();
     const pass = document.getElementById('reg-password').value;
     const passConf = document.getElementById('reg-password-confirm').value;

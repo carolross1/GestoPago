@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/services/biometric_service.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/form_validators.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
@@ -269,15 +270,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 controller: _correoController,
                                 keyboardType: TextInputType.emailAddress,
                                 prefixIcon: Icons.alternate_email_rounded,
-                                validator: (val) {
-                                  if (val == null || val.trim().isEmpty) {
-                                    return 'Ingresa tu correo registrado';
-                                  }
-                                  if (!val.contains('@') || !val.contains('.')) {
-                                    return 'Ingresa un correo electrónico válido';
-                                  }
-                                  return null;
-                                },
+                                validator: FormValidators.correo,
                               ),
                               const SizedBox(height: 16),
                               CustomTextField(
@@ -286,15 +279,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 controller: _passwordController,
                                 isPassword: true,
                                 prefixIcon: Icons.lock_outline_rounded,
-                                validator: (val) {
-                                  if (val == null || val.isEmpty) {
-                                    return 'Ingresa tu contraseña';
-                                  }
-                                  if (val.length < 8) {
-                                    return 'La contraseña debe tener al menos 8 caracteres';
-                                  }
-                                  return null;
-                                },
+                                validator: FormValidators.password,
                               ),
                               const SizedBox(height: 24),
                               CustomButton(

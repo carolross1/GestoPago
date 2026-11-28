@@ -25,24 +25,24 @@ import static com.proyecto.servicios.model.cliente.ValidacionPatrones.*;
 public class ClienteRequest extends SolicitudEstricta {
 
     @NotBlank
-    @Size(min = 2, max = 50, message = "Debe tener entre 2 y 50 caracteres")
-    @Pattern(regexp = SOLO_LETRAS, message = MSG_SOLO_LETRAS)
+    @Size(min = 2, max = 50, message = "El nombre debe tener minimo 2 y maximo 50 caracteres")
+    @Pattern(regexp = SOLO_UNA_PALABRA, message = "Ingresa un solo primer nombre con letras (si tienes dos, usa Segundo Nombre)")
     @Schema(example = "Juan")
     private String nombre;
 
     @Size(max = 50, message = "Debe tener maximo 50 caracteres")
-    @Pattern(regexp = SOLO_LETRAS_OPCIONAL, message = MSG_SOLO_LETRAS)
+    @Pattern(regexp = SOLO_UNA_PALABRA_OPCIONAL, message = "El segundo nombre es opcional, minimo 2 letras y una sola palabra")
     @Schema(example = "Carlos")
     private String segundoNombre;
 
     @NotBlank
-    @Size(min = 2, max = 50, message = "Debe tener entre 2 y 50 caracteres")
+    @Size(min = 3, max = 50, message = "El apellido paterno debe tener minimo 3 y maximo 50 caracteres")
     @Pattern(regexp = SOLO_LETRAS, message = MSG_SOLO_LETRAS)
     @Schema(example = "Perez")
     private String apellidoPaterno;
 
     @NotBlank
-    @Size(min = 2, max = 50, message = "Debe tener entre 2 y 50 caracteres")
+    @Size(min = 3, max = 50, message = "El apellido materno debe tener minimo 3 y maximo 50 caracteres")
     @Pattern(regexp = SOLO_LETRAS, message = MSG_SOLO_LETRAS)
     @Schema(example = "Lopez")
     private String apellidoMaterno;
@@ -95,6 +95,7 @@ public class ClienteRequest extends SolicitudEstricta {
 
     @NotBlank
     @Email(message = "El correo no tiene un formato valido")
+    @Pattern(regexp = CORREO_DOMINIO_VALIDO, message = MSG_CORREO_DOMINIO)
     @Size(max = 100)
     @Schema(example = "juan.perez@correo.com")
     private String correo;

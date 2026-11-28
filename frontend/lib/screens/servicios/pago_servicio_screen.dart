@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/currency_formatter.dart';
+import '../../core/utils/form_validators.dart';
 import '../../models/producto_model.dart';
 import '../../models/transaccion_model.dart';
 import '../../providers/cuenta_provider.dart';
@@ -361,14 +362,17 @@ class _PagoServicioScreenState extends State<PagoServicioScreen> {
                       ],
                       onChanged: _onDestinoChanged,
                       validator: (value) {
+                        if (_esTelefono) {
+                          return FormValidators.telefonoMexico(value);
+                        }
                         if (value == null || value.trim().isEmpty) {
-                          return 'Campo obligatorio';
+                          return 'Ingresa tu referencia';
                         }
-                        if (_esTelefono && value.trim().length != 10) {
-                          return 'Debe tener exactamente 10 dígitos';
+                        if (value.trim().length < 5) {
+                          return 'Debe tener al menos 5 caracteres (llevas ${value.trim().length})';
                         }
-                        if (!_esTelefono && value.trim().length < 5) {
-                          return 'Debe tener al menos 5 dígitos';
+                        if (RegExp(r'^(.)\1{4,}$').hasMatch(value.trim())) {
+                          return 'La referencia no puede ser un solo carácter repetido';
                         }
                         return null;
                       },

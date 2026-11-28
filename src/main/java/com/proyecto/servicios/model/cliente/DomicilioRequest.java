@@ -13,8 +13,8 @@ import static com.proyecto.servicios.model.cliente.ValidacionPatrones.*;
 public class DomicilioRequest extends SolicitudEstricta {
 
     @NotBlank
-    @Size(max = 100, message = "Debe tener maximo 100 caracteres")
-    @Pattern(regexp = SOLO_LETRAS, message = MSG_SOLO_LETRAS)
+    @Size(min = 2, max = 100, message = "Debe tener entre 2 y 100 caracteres")
+    @Pattern(regexp = TEXTO_DIRECCION, message = MSG_TEXTO_DIRECCION)
     @Schema(example = "Hidalgo")
     private String calle;
 
@@ -30,8 +30,8 @@ public class DomicilioRequest extends SolicitudEstricta {
     private Integer numeroInterior;
 
     @NotBlank
-    @Size(max = 100, message = "Debe tener maximo 100 caracteres")
-    @Pattern(regexp = SOLO_LETRAS, message = MSG_SOLO_LETRAS)
+    @Size(min = 2, max = 100, message = "Debe tener entre 2 y 100 caracteres")
+    @Pattern(regexp = TEXTO_DIRECCION, message = MSG_TEXTO_DIRECCION)
     @Schema(example = "Centro")
     private String colonia;
 

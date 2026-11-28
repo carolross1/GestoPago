@@ -23,6 +23,21 @@ public final class ValidacionPatrones {
     /** Igual que SOLO_LETRAS pero acepta cadena vacia (campos opcionales). */
     public static final String SOLO_LETRAS_OPCIONAL = "^$|" + SOLO_LETRAS;
 
+    /** Una sola palabra de letras (para primer nombre y segundo nombre opcional, maximo 2 nombres en total). */
+    public static final String SOLO_UNA_PALABRA = "^" + LETRA + "{2,50}$";
+    public static final String SOLO_UNA_PALABRA_OPCIONAL = "^$|" + SOLO_UNA_PALABRA;
+
+    /** Direccion: permite letras, numeros, espacios y puntuacion basica (ej. "15 de Septiembre", "Av. Hidalgo"). */
+    public static final String TEXTO_DIRECCION = "^[A-Za-zÁÉÍÓÚÜáéíóúüÑñ0-9]+([ .,-][A-Za-zÁÉÍÓÚÜáéíóúüÑñ0-9]+)*$";
+    public static final String MSG_TEXTO_DIRECCION =
+            "Solo se permiten letras, numeros y espacios";
+
+    /** Correo con dominio y extension real (ej. usuario@gmail.com). */
+    public static final String CORREO_DOMINIO_VALIDO =
+            "^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,10}$";
+    public static final String MSG_CORREO_DOMINIO =
+            "Ingresa un correo con dominio valido (ej. usuario@gmail.com)";
+
     public static final String MSG_SOLO_LETRAS =
             "Solo se permiten letras y espacios, sin numeros ni caracteres especiales";
 

@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/form_validators.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
@@ -43,16 +46,54 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
     {'codigo': 'ARG', 'nombre': 'Argentina'},
   ];
 
-  // Paso 2: Domicilio y Datos Laborales
+  // Paso 2: Domicilio (con API de Código Postal) y Profesión/Tabulador Salarial
+  final _cpCtrl = TextEditingController();
   final _calleCtrl = TextEditingController();
   final _numExtCtrl = TextEditingController();
   final _numIntCtrl = TextEditingController();
   final _coloniaCtrl = TextEditingController();
   final _municipioCtrl = TextEditingController();
   final _estadoCtrl = TextEditingController();
-  final _cpCtrl = TextEditingController();
   final _paisCtrl = TextEditingController(text: 'Mexico');
-  final _ocupacionCtrl = TextEditingController();
+
+  bool _buscandoCp = false;
+  String? _mensajeCp;
+  bool _cpEncontrado = false;
+  String _ultimoCpBuscado = '';
+  List<String> _coloniasDisponibles = [];
+  String? _coloniaSeleccionada;
+  bool _coloniaManual = false;
+
+  // Catálogo oficial de profesiones (INEGI SINCO) + Tabulador salarial
+  List<Map<String, dynamic>> _tabuladores = [
+    {'id': 'TAB_1', 'etiqueta': 'De \$0 a \$10,000 MXN', 'minimo': 0.01, 'maximo': 10000.0},
+    {'id': 'TAB_2', 'etiqueta': 'De \$10,001 a \$25,000 MXN', 'minimo': 10001.0, 'maximo': 25000.0},
+    {'id': 'TAB_3', 'etiqueta': 'De \$25,001 a \$50,000 MXN', 'minimo': 25001.0, 'maximo': 50000.0},
+    {'id': 'TAB_4', 'etiqueta': 'De \$50,001 a \$100,000 MXN', 'minimo': 50001.0, 'maximo': 100000.0},
+    {'id': 'TAB_5', 'etiqueta': 'De \$100,001 a \$250,000 MXN', 'minimo': 100001.0, 'maximo': 250000.0},
+  ];
+
+  List<Map<String, dynamic>> _profesiones = [
+    {'nombre': 'Estudiante', 'categoria': 'Educación', 'tabuladorSugerido': 'TAB_1'},
+    {'nombre': 'Trabajo del Hogar', 'categoria': 'Servicios', 'tabuladorSugerido': 'TAB_1'},
+    {'nombre': 'Jubilado o Pensionado', 'categoria': 'Pensiones', 'tabuladorSugerido': 'TAB_1'},
+    {'nombre': 'Auxiliar Administrativo', 'categoria': 'Administración', 'tabuladorSugerido': 'TAB_2'},
+    {'nombre': 'Comerciante', 'categoria': 'Comercio', 'tabuladorSugerido': 'TAB_2'},
+    {'nombre': 'Docente o Profesor', 'categoria': 'Educación', 'tabuladorSugerido': 'TAB_2'},
+    {'nombre': 'Enfermero', 'categoria': 'Salud', 'tabuladorSugerido': 'TAB_2'},
+    {'nombre': 'Disenador Grafico o Digital', 'categoria': 'Creatividad', 'tabuladorSugerido': 'TAB_2'},
+    {'nombre': 'Contador Publico', 'categoria': 'Finanzas', 'tabuladorSugerido': 'TAB_3'},
+    {'nombre': 'Abogado', 'categoria': 'Derecho', 'tabuladorSugerido': 'TAB_3'},
+    {'nombre': 'Arquitecto', 'categoria': 'Construcción', 'tabuladorSugerido': 'TAB_3'},
+    {'nombre': 'Ingeniero en Sistemas', 'categoria': 'Tecnología', 'tabuladorSugerido': 'TAB_3'},
+    {'nombre': 'Desarrollador de Software', 'categoria': 'Tecnología', 'tabuladorSugerido': 'TAB_3'},
+    {'nombre': 'Medico General o Especialista', 'categoria': 'Salud', 'tabuladorSugerido': 'TAB_4'},
+    {'nombre': 'Empresario', 'categoria': 'Dirección', 'tabuladorSugerido': 'TAB_4'},
+    {'nombre': 'Director Ejecutivo', 'categoria': 'Dirección', 'tabuladorSugerido': 'TAB_5'},
+  ];
+
+  String _profesionSeleccionada = 'Estudiante';
+  String _tabuladorId = 'TAB_1';
   final _empresaCtrl = TextEditingController();
   final _ingresoCtrl = TextEditingController();
 
@@ -63,29 +104,180 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
   final _passwordCtrl = TextEditingController();
   final _confirmPasswordCtrl = TextEditingController();
 
-  static final RegExp _soloLetrasRegex =
-      RegExp(r'^[A-Za-zÁÉÍÓÚÜáéíóúüÑñ]+( [A-Za-zÁÉÍÓÚÜáéíóúüÑñ]+)*$');
-  static final RegExp _curpRegex =
-      RegExp(r'^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$');
-  static final RegExp _rfcRegex =
-      RegExp(r'^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{2,3}$');
+  Map<String, dynamic> get _tabuladorActual {
+    return _tabuladores.firstWhere(
+      (t) => t['id'] == _tabuladorId,
+      orElse: () => _tabuladores.first,
+    );
+  }
+
+  double get _sueldoMin => (_tabuladorActual['minimo'] as num).toDouble();
+  double get _sueldoMax => (_tabuladorActual['maximo'] as num).toDouble();
 
   @override
   void initState() {
     super.initState();
-    _cargarNacionalidades();
+    _cargarCatalogos();
   }
 
-  Future<void> _cargarNacionalidades() async {
+  Future<void> _cargarCatalogos() async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    final lista = await auth.obtenerNacionalidades();
-    if (!mounted || lista.isEmpty) return;
+    final results = await Future.wait([
+      auth.obtenerNacionalidades(),
+      auth.obtenerCatalogoProfesiones(),
+    ]);
+    if (!mounted) return;
+
+    final listaNac = results[0] as List<Map<String, String>>;
+    final catProf = results[1] as Map<String, dynamic>?;
+
     setState(() {
-      _nacionalidades = lista;
-      if (!_nacionalidades.any((n) => n['codigo'] == _nacionalidad)) {
-        _nacionalidad = _nacionalidades.first['codigo']!;
+      if (listaNac.isNotEmpty) {
+        _nacionalidades = listaNac;
+        if (!_nacionalidades.any((n) => n['codigo'] == _nacionalidad)) {
+          _nacionalidad = _nacionalidades.first['codigo']!;
+        }
+      }
+      if (catProf != null) {
+        final tabs = catProf['tabuladores'];
+        if (tabs is List && tabs.isNotEmpty) {
+          _tabuladores = tabs
+              .whereType<Map<String, dynamic>>()
+              .map((t) => {
+                    'id': t['id'].toString(),
+                    'etiqueta': t['etiqueta'].toString(),
+                    'minimo': (t['minimo'] as num).toDouble(),
+                    'maximo': (t['maximo'] as num).toDouble(),
+                  })
+              .toList();
+        }
+        final profs = catProf['profesiones'];
+        if (profs is List && profs.isNotEmpty) {
+          _profesiones = profs
+              .whereType<Map<String, dynamic>>()
+              .map((p) => {
+                    'nombre': p['nombre'].toString(),
+                    'categoria': (p['categoria'] ?? '').toString(),
+                    'tabuladorSugerido': (p['tabuladorSugerido'] ?? 'TAB_1').toString(),
+                  })
+              .toList();
+          if (!_profesiones.any((p) => p['nombre'] == _profesionSeleccionada)) {
+            _profesionSeleccionada = _profesiones.first['nombre'].toString();
+          }
+        }
       }
     });
+  }
+
+  Future<void> _buscarDireccionPorCp(String cp) async {
+    final limpio = cp.trim();
+    if (limpio.length != 5 || !RegExp(r'^\d{5}$').hasMatch(limpio)) {
+      if (_cpEncontrado || _mensajeCp != null) {
+        setState(() {
+          _cpEncontrado = false;
+          _mensajeCp = null;
+          _ultimoCpBuscado = '';
+          _coloniasDisponibles = [];
+          _coloniaSeleccionada = null;
+        });
+      }
+      return;
+    }
+
+    if (limpio == _ultimoCpBuscado) return;
+    _ultimoCpBuscado = limpio;
+
+    setState(() {
+      _buscandoCp = true;
+      _mensajeCp = null;
+      _cpEncontrado = false;
+    });
+
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    Map<String, dynamic>? datos = await auth.consultarCodigoPostal(limpio);
+
+    // Respaldo directo a Zippopotam si el backend aún está desplegando
+    datos ??= await _consultarZippopotamDirecto(limpio);
+
+    if (!mounted) return;
+
+    if (datos != null) {
+      final estado = (datos['estado'] ?? '').toString();
+      final municipio = (datos['municipio'] ?? '').toString();
+      final pais = (datos['pais'] ?? 'Mexico').toString();
+      final rawCols = datos['colonias'];
+      final cols = rawCols is List
+          ? rawCols.map((e) => e.toString()).where((e) => e.isNotEmpty).toList()
+          : <String>[];
+
+      setState(() {
+        _buscandoCp = false;
+        _cpEncontrado = true;
+        _estadoCtrl.text = estado;
+        _municipioCtrl.text = municipio.isNotEmpty ? municipio : estado;
+        _paisCtrl.text = pais.isNotEmpty ? pais : 'Mexico';
+        _coloniasDisponibles = cols;
+        if (cols.isNotEmpty) {
+          _coloniaSeleccionada = cols.first;
+          _coloniaCtrl.text = cols.first;
+          _coloniaManual = false;
+          _mensajeCp =
+              'Dirección autocompletada: ${cols.length} colonia(s) encontradas en $_estadoCtrlText.';
+        } else {
+          _coloniaSeleccionada = null;
+          _coloniaManual = true;
+          _mensajeCp = 'Estado y municipio completados; escribe tu colonia.';
+        }
+      });
+      _step2Key.currentState?.validate();
+    } else {
+      setState(() {
+        _buscandoCp = false;
+        _cpEncontrado = false;
+        _coloniasDisponibles = [];
+        _coloniaSeleccionada = null;
+        _coloniaManual = true;
+        _mensajeCp = 'No encontramos ese CP en el catálogo; puedes llenar los campos manualmente.';
+      });
+    }
+  }
+
+  String get _estadoCtrlText =>
+      _estadoCtrl.text.isNotEmpty ? _estadoCtrl.text : 'México';
+
+  Future<Map<String, dynamic>?> _consultarZippopotamDirecto(String cp) async {
+    try {
+      final resp = await http
+          .get(Uri.parse('https://api.zippopotam.us/mx/$cp'))
+          .timeout(const Duration(seconds: 6));
+      if (resp.statusCode != 200) return null;
+      final body = jsonDecode(resp.body) as Map<String, dynamic>;
+      final places = body['places'] as List<dynamic>? ?? [];
+      if (places.isEmpty) return null;
+      String estado = '';
+      final colonias = <String>{};
+      for (final p in places) {
+        if (p is Map<String, dynamic>) {
+          if (estado.isEmpty) {
+            estado = (p['state'] ?? '').toString();
+            if (estado.toLowerCase() == 'distrito federal') {
+              estado = 'Ciudad de Mexico';
+            }
+          }
+          final c = (p['place name'] ?? '').toString().trim();
+          if (c.isNotEmpty) colonias.add(c);
+        }
+      }
+      return {
+        'codigoPostal': cp,
+        'pais': 'Mexico',
+        'estado': estado,
+        'municipio': estado,
+        'colonias': colonias.toList(),
+      };
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
@@ -105,7 +297,6 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
     _estadoCtrl.dispose();
     _cpCtrl.dispose();
     _paisCtrl.dispose();
-    _ocupacionCtrl.dispose();
     _empresaCtrl.dispose();
     _ingresoCtrl.dispose();
     _correoCtrl.dispose();
@@ -114,23 +305,6 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
     _passwordCtrl.dispose();
     _confirmPasswordCtrl.dispose();
     super.dispose();
-  }
-
-  String _limpiarEspacios(String valor) =>
-      valor.trim().replaceAll(RegExp(r'\s+'), ' ');
-
-  String? _validarSoloLetras(String? val, String etiqueta, {bool opcional = false, int minLen = 1}) {
-    final limpio = _limpiarEspacios(val ?? '');
-    if (limpio.isEmpty) {
-      return opcional ? null : 'Ingresa $etiqueta';
-    }
-    if (limpio.length < minLen) {
-      return 'Debe tener al menos $minLen caracteres';
-    }
-    if (!_soloLetrasRegex.hasMatch(limpio)) {
-      return 'Solo letras y espacios (sin números ni símbolos)';
-    }
-    return null;
   }
 
   Future<void> _seleccionarFecha() async {
@@ -154,6 +328,7 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
         final d = seleccionada.day.toString().padLeft(2, '0');
         _fechaNacCtrl.text = '$y/$m/$d';
       });
+      _step1Key.currentState?.validate();
     }
   }
 
@@ -172,22 +347,22 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
     final auth = Provider.of<AuthProvider>(context, listen: false);
 
     final domicilio = <String, dynamic>{
-      'calle': _limpiarEspacios(_calleCtrl.text),
+      'calle': FormValidators.limpiarEspacios(_calleCtrl.text),
       'numeroExterior': int.parse(_numExtCtrl.text.trim()),
-      'colonia': _limpiarEspacios(_coloniaCtrl.text),
-      'municipio': _limpiarEspacios(_municipioCtrl.text),
-      'estado': _limpiarEspacios(_estadoCtrl.text),
+      'colonia': FormValidators.limpiarEspacios(_coloniaCtrl.text),
+      'municipio': FormValidators.limpiarEspacios(_municipioCtrl.text),
+      'estado': FormValidators.limpiarEspacios(_estadoCtrl.text),
       'codigoPostal': int.parse(_cpCtrl.text.trim()),
-      'pais': _limpiarEspacios(_paisCtrl.text),
+      'pais': FormValidators.limpiarEspacios(_paisCtrl.text),
     };
     if (_numIntCtrl.text.trim().isNotEmpty) {
       domicilio['numeroInterior'] = int.parse(_numIntCtrl.text.trim());
     }
 
     final payload = <String, dynamic>{
-      'nombre': _limpiarEspacios(_nombreCtrl.text),
-      'apellidoPaterno': _limpiarEspacios(_apellidoPaternoCtrl.text),
-      'apellidoMaterno': _limpiarEspacios(_apellidoMaternoCtrl.text),
+      'nombre': _nombreCtrl.text.trim(),
+      'apellidoPaterno': FormValidators.limpiarEspacios(_apellidoPaternoCtrl.text),
+      'apellidoMaterno': FormValidators.limpiarEspacios(_apellidoMaternoCtrl.text),
       'fechaNacimiento': _fechaNacCtrl.text.trim(),
       'curp': _curpCtrl.text.trim().toUpperCase(),
       'rfc': _rfcCtrl.text.trim().toUpperCase(),
@@ -197,13 +372,13 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
       'correo': _correoCtrl.text.trim().toLowerCase(),
       'telefonoMovil': int.parse(_telefonoMovilCtrl.text.trim()),
       'domicilio': domicilio,
-      'ocupacion': _limpiarEspacios(_ocupacionCtrl.text),
-      'empresa': _limpiarEspacios(_empresaCtrl.text),
+      'ocupacion': _profesionSeleccionada,
+      'empresa': FormValidators.limpiarEspacios(_empresaCtrl.text),
       'ingresoMensual': double.parse(_ingresoCtrl.text.trim()).toStringAsFixed(2),
     };
 
-    if (_limpiarEspacios(_segundoNombreCtrl.text).isNotEmpty) {
-      payload['segundoNombre'] = _limpiarEspacios(_segundoNombreCtrl.text);
+    if (_segundoNombreCtrl.text.trim().isNotEmpty) {
+      payload['segundoNombre'] = _segundoNombreCtrl.text.trim();
     }
     if (_telefonoAltCtrl.text.trim().isNotEmpty) {
       payload['telefonoAlternativo'] = int.parse(_telefonoAltCtrl.text.trim());
@@ -317,7 +492,7 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
   }
 
   Widget _buildIndicadorPasos() {
-    const titulos = ['Personal', 'Domicilio', 'Acceso'];
+    const titulos = ['Personal', 'Domicilio y Laboral', 'Acceso'];
     return Row(
       children: List.generate(3, (i) {
         final activo = i <= _pasoActual;
@@ -357,6 +532,7 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
     required T value,
     required List<DropdownMenuItem<T>> items,
     required ValueChanged<T?> onChanged,
+    String? helperText,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -371,21 +547,24 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<T>(
+          key: ValueKey('$label-$value'),
           initialValue: value,
           isExpanded: true,
           items: items,
           onChanged: onChanged,
           decoration: InputDecoration(
             filled: true,
-            fillColor: AppColors.surfaceElevated,
+            fillColor: const Color(0xFFFAF9FF),
+            helperText: helperText,
+            helperMaxLines: 2,
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.border),
+              borderRadius: BorderRadius.circular(15),
+              borderSide: const BorderSide(color: Color(0xFFE7E1FF)),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.border),
+              borderRadius: BorderRadius.circular(15),
+              borderSide: const BorderSide(color: Color(0xFFE7E1FF)),
             ),
           ),
         ),
@@ -396,47 +575,61 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
   Widget _buildPaso1() {
     return Form(
       key: _step1Key,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           CustomTextField(
-            label: 'Nombre',
+            label: 'Primer nombre *',
             hint: 'Ej. Carol',
+            helperText: 'Mínimo 2 letras, un solo nombre (sin espacios)',
             controller: _nombreCtrl,
             prefixIcon: Icons.person_outline_rounded,
-            validator: (v) => _validarSoloLetras(v, 'tu nombre', minLen: 2),
+            inputFormatters: [
+              FilteringTextInputFormatter.deny(RegExp(r'\s')),
+              LengthLimitingTextInputFormatter(50),
+            ],
+            validator: FormValidators.primerNombre,
           ),
           const SizedBox(height: 14),
           CustomTextField(
             label: 'Segundo nombre (opcional)',
             hint: 'Ej. Guadalupe',
+            helperText: 'Opcional; máximo 2 nombres en total',
             controller: _segundoNombreCtrl,
             prefixIcon: Icons.person_outline_rounded,
-            validator: (v) => _validarSoloLetras(v, 'tu segundo nombre', opcional: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.deny(RegExp(r'\s')),
+              LengthLimitingTextInputFormatter(50),
+            ],
+            validator: FormValidators.segundoNombre,
           ),
           const SizedBox(height: 14),
           CustomTextField(
-            label: 'Apellido paterno',
+            label: 'Apellido paterno *',
             hint: 'Ej. Rios',
+            helperText: 'Mínimo 3 caracteres',
             controller: _apellidoPaternoCtrl,
             prefixIcon: Icons.badge_outlined,
-            validator: (v) => _validarSoloLetras(v, 'tu apellido paterno', minLen: 2),
+            validator: (v) => FormValidators.apellido(v, 'tu apellido paterno'),
           ),
           const SizedBox(height: 14),
           CustomTextField(
-            label: 'Apellido materno',
+            label: 'Apellido materno *',
             hint: 'Ej. Lopez',
+            helperText: 'Mínimo 3 caracteres',
             controller: _apellidoMaternoCtrl,
             prefixIcon: Icons.badge_outlined,
-            validator: (v) => _validarSoloLetras(v, 'tu apellido materno', minLen: 2),
+            validator: (v) => FormValidators.apellido(v, 'tu apellido materno'),
           ),
           const SizedBox(height: 14),
           GestureDetector(
             onTap: _seleccionarFecha,
             child: AbsorbPointer(
               child: CustomTextField(
-                label: 'Fecha de nacimiento',
+                label: 'Fecha de nacimiento *',
                 hint: 'yyyy/MM/dd',
+                helperText: 'Debes ser mayor de 18 años',
                 controller: _fechaNacCtrl,
                 readOnly: true,
                 prefixIcon: Icons.calendar_today_rounded,
@@ -447,7 +640,7 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
           ),
           const SizedBox(height: 14),
           CustomTextField(
-            label: 'CURP (18 caracteres)',
+            label: 'CURP (18 caracteres) *',
             hint: 'Ej. PELJ990131HGTRPN09',
             controller: _curpCtrl,
             prefixIcon: Icons.fingerprint_rounded,
@@ -457,17 +650,11 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
               TextInputFormatter.withFunction((oldVal, newVal) =>
                   newVal.copyWith(text: newVal.text.toUpperCase())),
             ],
-            validator: (v) {
-              final curp = (v ?? '').trim().toUpperCase();
-              if (!_curpRegex.hasMatch(curp)) {
-                return 'CURP inválida (18 caracteres, formato oficial)';
-              }
-              return null;
-            },
+            validator: FormValidators.curp,
           ),
           const SizedBox(height: 14),
           CustomTextField(
-            label: 'RFC (12 o 13 caracteres)',
+            label: 'RFC (12 o 13 caracteres) *',
             hint: 'Ej. PELJ990131AB1',
             controller: _rfcCtrl,
             prefixIcon: Icons.receipt_long_outlined,
@@ -477,13 +664,7 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
               TextInputFormatter.withFunction((oldVal, newVal) =>
                   newVal.copyWith(text: newVal.text.toUpperCase())),
             ],
-            validator: (v) {
-              final rfc = (v ?? '').trim().toUpperCase();
-              if (!_rfcRegex.hasMatch(rfc)) {
-                return 'RFC inválido (12 o 13 caracteres, formato oficial)';
-              }
-              return null;
-            },
+            validator: FormValidators.rfc,
           ),
           const SizedBox(height: 14),
           Row(
@@ -541,22 +722,146 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
   Widget _buildPaso2() {
     return Form(
       key: _step2Key,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // 1. Código Postal primero para autocompletar con API
           CustomTextField(
-            label: 'Calle',
+            label: 'Código Postal (5 dígitos) *',
+            hint: 'Ej. 37800',
+            helperText: 'Al escribir 5 dígitos se llenan estado, municipio y colonias automáticamente',
+            controller: _cpCtrl,
+            keyboardType: TextInputType.number,
+            prefixIcon: Icons.markunread_mailbox_outlined,
+            suffixIcon: _buscandoCp
+                ? const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : (_cpEncontrado
+                    ? const Icon(Icons.check_circle_rounded, color: AppColors.success)
+                    : null),
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(5),
+            ],
+            onChanged: _buscarDireccionPorCp,
+            validator: FormValidators.codigoPostal,
+          ),
+
+          if (_mensajeCp != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _cpEncontrado ? AppColors.successBg : AppColors.warningBg,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                _mensajeCp!,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: _cpEncontrado ? AppColors.success : AppColors.warning,
+                ),
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 14),
+
+          // Colonia: desplegable si la API devolvió colonias, o texto manual
+          if (_coloniasDisponibles.isNotEmpty && !_coloniaManual) ...[
+            _buildDropdown<String>(
+              label: 'Colonia *',
+              value: _coloniaSeleccionada ?? _coloniasDisponibles.first,
+              items: [
+                ..._coloniasDisponibles.map(
+                  (c) => DropdownMenuItem(
+                    value: c,
+                    child: Text(c, overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+                const DropdownMenuItem(
+                  value: '__OTRA__',
+                  child: Text('Otra colonia (escribir manualmente)...'),
+                ),
+              ],
+              onChanged: (v) {
+                if (v == '__OTRA__') {
+                  setState(() {
+                    _coloniaManual = true;
+                    _coloniaCtrl.clear();
+                  });
+                } else if (v != null) {
+                  setState(() {
+                    _coloniaSeleccionada = v;
+                    _coloniaCtrl.text = v;
+                  });
+                }
+              },
+            ),
+          ] else ...[
+            CustomTextField(
+              label: 'Colonia *',
+              hint: 'Ej. Centro',
+              controller: _coloniaCtrl,
+              prefixIcon: Icons.location_city_rounded,
+              validator: (v) => FormValidators.textoDireccion(v, 'tu colonia'),
+            ),
+          ],
+
+          const SizedBox(height: 14),
+          CustomTextField(
+            label: 'Municipio *',
+            hint: 'Ej. Dolores Hidalgo',
+            controller: _municipioCtrl,
+            prefixIcon: Icons.map_outlined,
+            validator: (v) => FormValidators.soloLetras(v, 'tu municipio'),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: CustomTextField(
+                  label: 'Estado *',
+                  hint: 'Ej. Guanajuato',
+                  controller: _estadoCtrl,
+                  validator: (v) => FormValidators.soloLetras(v, 'tu estado'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: CustomTextField(
+                  label: 'País *',
+                  hint: 'Mexico',
+                  controller: _paisCtrl,
+                  validator: (v) => FormValidators.soloLetras(v, 'tu país'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          CustomTextField(
+            label: 'Calle *',
             hint: 'Ej. Hidalgo',
             controller: _calleCtrl,
             prefixIcon: Icons.home_outlined,
-            validator: (v) => _validarSoloLetras(v, 'tu calle'),
+            validator: (v) => FormValidators.textoDireccion(v, 'tu calle'),
           ),
           const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
                 child: CustomTextField(
-                  label: 'Núm. exterior',
+                  label: 'Núm. exterior *',
                   hint: 'Ej. 120',
                   controller: _numExtCtrl,
                   keyboardType: TextInputType.number,
@@ -564,13 +869,7 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
                     FilteringTextInputFormatter.digitsOnly,
                     LengthLimitingTextInputFormatter(6),
                   ],
-                  validator: (v) {
-                    final n = int.tryParse((v ?? '').trim());
-                    if (n == null || n < 1 || n > 999999) {
-                      return 'Número inválido';
-                    }
-                    return null;
-                  },
+                  validator: (v) => FormValidators.numeroDomicilio(v),
                 ),
               ),
               const SizedBox(width: 12),
@@ -584,110 +883,104 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
                     FilteringTextInputFormatter.digitsOnly,
                     LengthLimitingTextInputFormatter(6),
                   ],
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) return null;
-                    final n = int.tryParse(v.trim());
-                    if (n == null || n < 1 || n > 999999) {
-                      return 'Número inválido';
-                    }
-                    return null;
-                  },
+                  validator: (v) => FormValidators.numeroDomicilio(v, opcional: true),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          CustomTextField(
-            label: 'Colonia',
-            hint: 'Ej. Centro',
-            controller: _coloniaCtrl,
-            prefixIcon: Icons.location_city_rounded,
-            validator: (v) => _validarSoloLetras(v, 'tu colonia'),
-          ),
-          const SizedBox(height: 14),
-          CustomTextField(
-            label: 'Municipio',
-            hint: 'Ej. Dolores Hidalgo',
-            controller: _municipioCtrl,
-            prefixIcon: Icons.map_outlined,
-            validator: (v) => _validarSoloLetras(v, 'tu municipio'),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: CustomTextField(
-                  label: 'Estado',
-                  hint: 'Ej. Guanajuato',
-                  controller: _estadoCtrl,
-                  validator: (v) => _validarSoloLetras(v, 'tu estado'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: CustomTextField(
-                  label: 'Código Postal',
-                  hint: '37800',
-                  controller: _cpCtrl,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(5),
-                  ],
-                  validator: (v) {
-                    final cp = int.tryParse((v ?? '').trim());
-                    if (cp == null || cp < 1000 || cp > 99999) {
-                      return 'CP de 5 dígitos';
-                    }
-                    return null;
-                  },
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          CustomTextField(
-            label: 'País',
-            hint: 'Mexico',
-            controller: _paisCtrl,
-            prefixIcon: Icons.public_rounded,
-            validator: (v) => _validarSoloLetras(v, 'tu país'),
-          ),
+
           const Divider(height: 28),
-          CustomTextField(
-            label: 'Ocupación',
-            hint: 'Ej. Estudiante o Ingeniero',
-            controller: _ocupacionCtrl,
-            prefixIcon: Icons.work_outline_rounded,
-            validator: (v) => _validarSoloLetras(v, 'tu ocupación'),
+
+          // Catálogo Oficial de Profesiones (INEGI SINCO)
+          _buildDropdown<String>(
+            label: 'Profesión / Ocupación (Catálogo SINCO) *',
+            value: _profesionSeleccionada,
+            items: _profesiones
+                .map((p) => DropdownMenuItem<String>(
+                      value: p['nombre'].toString(),
+                      child: Text(
+                        '${p['nombre']} (${p['categoria']})',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ))
+                .toList(),
+            onChanged: (v) {
+              if (v == null) return;
+              final prof = _profesiones.firstWhere(
+                (p) => p['nombre'] == v,
+                orElse: () => _profesiones.first,
+              );
+              final tabSugerido = (prof['tabuladorSugerido'] ?? 'TAB_1').toString();
+              setState(() {
+                _profesionSeleccionada = v;
+                if (_tabuladores.any((t) => t['id'] == tabSugerido)) {
+                  _tabuladorId = tabSugerido;
+                }
+                // Si el ingreso escrito supera el nuevo máximo, limpiarlo para evitar inconsistencia
+                final actual = double.tryParse(_ingresoCtrl.text.trim());
+                if (actual != null && actual > _sueldoMax) {
+                  _ingresoCtrl.clear();
+                }
+              });
+              _step2Key.currentState?.validate();
+            },
           ),
+
           const SizedBox(height: 14),
-          CustomTextField(
-            label: 'Empresa o institución',
-            hint: 'Ej. Universidad o Independiente',
-            controller: _empresaCtrl,
-            prefixIcon: Icons.business_outlined,
-            validator: (v) => _validarSoloLetras(v, 'tu empresa'),
+
+          // Tabulador Salarial
+          _buildDropdown<String>(
+            label: 'Tabulador de Sueldo Mensual *',
+            value: _tabuladorId,
+            helperText:
+                'Tu ingreso mensual deberá estar dentro de este rango y no podrás exceder el límite.',
+            items: _tabuladores
+                .map((t) => DropdownMenuItem<String>(
+                      value: t['id'].toString(),
+                      child: Text(
+                        t['etiqueta'].toString(),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ))
+                .toList(),
+            onChanged: (v) {
+              if (v == null) return;
+              setState(() {
+                _tabuladorId = v;
+                final actual = double.tryParse(_ingresoCtrl.text.trim());
+                if (actual != null && actual > _sueldoMax) {
+                  _ingresoCtrl.clear();
+                }
+              });
+              _step2Key.currentState?.validate();
+            },
           ),
+
           const SizedBox(height: 14),
+
+          // Ingreso Mensual bloqueado al máximo del tabulador seleccionado
           CustomTextField(
-            label: 'Ingreso mensual (\$ MXN)',
-            hint: 'Ej. 15000.00',
+            label: 'Ingreso mensual exacto (\$ MXN) *',
+            hint: 'Entre \$${_sueldoMin.toStringAsFixed(0)} y \$${_sueldoMax.toStringAsFixed(0)}',
+            helperText:
+                'Límite permitido por tu tabulador: \$${_sueldoMin.toStringAsFixed(0)} a \$${_sueldoMax.toStringAsFixed(0)} MXN',
             controller: _ingresoCtrl,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             prefixIcon: Icons.attach_money_rounded,
             inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+              MaxValueInputFormatter(_sueldoMax),
             ],
-            validator: (v) {
-              final val = double.tryParse((v ?? '').trim());
-              if (val == null || val <= 0) {
-                return 'Ingresa un monto mayor a cero';
-              }
-              return null;
-            },
+            validator: (v) => FormValidators.ingresoEnRango(v, _sueldoMin, _sueldoMax),
+          ),
+
+          const SizedBox(height: 14),
+          CustomTextField(
+            label: 'Empresa o institución *',
+            hint: 'Ej. Universidad o Independiente',
+            helperText: 'Mínimo 2 letras, sin números ni símbolos',
+            controller: _empresaCtrl,
+            prefixIcon: Icons.business_outlined,
+            validator: (v) => FormValidators.soloLetras(v, 'tu empresa o institución'),
           ),
         ],
       ),
@@ -697,27 +990,24 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
   Widget _buildPaso3() {
     return Form(
       key: _step3Key,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           CustomTextField(
-            label: 'Correo electrónico',
-            hint: 'tu.correo@ejemplo.com',
+            label: 'Correo electrónico *',
+            hint: 'tu.correo@gmail.com',
+            helperText: 'Debe tener un dominio real válido (ej. @gmail.com, @outlook.com)',
             controller: _correoCtrl,
             keyboardType: TextInputType.emailAddress,
-            prefixIcon: Icons.mail_outline_rounded,
-            validator: (v) {
-              final correo = (v ?? '').trim();
-              if (correo.isEmpty || !correo.contains('@') || !correo.contains('.')) {
-                return 'Ingresa un correo electrónico válido';
-              }
-              return null;
-            },
+            prefixIcon: Icons.alternate_email_rounded,
+            validator: FormValidators.correo,
           ),
           const SizedBox(height: 14),
           CustomTextField(
-            label: 'Teléfono móvil (10 dígitos)',
+            label: 'Teléfono móvil (10 dígitos) *',
             hint: 'Ej. 4181234567',
+            helperText: '10 dígitos válidos en México (sin 0 ni 1 al inicio)',
             controller: _telefonoMovilCtrl,
             keyboardType: TextInputType.phone,
             prefixIcon: Icons.phone_android_rounded,
@@ -725,13 +1015,7 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
               FilteringTextInputFormatter.digitsOnly,
               LengthLimitingTextInputFormatter(10),
             ],
-            validator: (v) {
-              final t = (v ?? '').trim();
-              if (t.length != 10 || t.startsWith('0')) {
-                return 'Ingresa un número de 10 dígitos válido';
-              }
-              return null;
-            },
+            validator: (v) => FormValidators.telefonoMexico(v),
           ),
           const SizedBox(height: 14),
           CustomTextField(
@@ -744,42 +1028,30 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
               FilteringTextInputFormatter.digitsOnly,
               LengthLimitingTextInputFormatter(10),
             ],
-            validator: (v) {
-              final t = (v ?? '').trim();
-              if (t.isEmpty) return null;
-              if (t.length != 10 || t.startsWith('0')) {
-                return 'Debe tener 10 dígitos válidos';
-              }
-              return null;
-            },
+            validator: (v) => FormValidators.telefonoMexico(v, opcional: true),
           ),
           const Divider(height: 28),
           CustomTextField(
-            label: 'Contraseña del portal',
+            label: 'Contraseña del portal *',
             hint: 'Mínimo 8 caracteres',
             controller: _passwordCtrl,
             isPassword: true,
             prefixIcon: Icons.lock_outline_rounded,
-            validator: (v) {
-              if (v == null || v.length < 8) {
-                return 'La contraseña debe tener al menos 8 caracteres';
+            onChanged: (_) {
+              if (_confirmPasswordCtrl.text.isNotEmpty) {
+                _step3Key.currentState?.validate();
               }
-              return null;
             },
+            validator: FormValidators.password,
           ),
           const SizedBox(height: 14),
           CustomTextField(
-            label: 'Confirmar contraseña',
+            label: 'Confirmar contraseña *',
             hint: 'Repite tu contraseña',
             controller: _confirmPasswordCtrl,
             isPassword: true,
             prefixIcon: Icons.lock_reset_rounded,
-            validator: (v) {
-              if (v != _passwordCtrl.text) {
-                return 'Las contraseñas no coinciden';
-              }
-              return null;
-            },
+            validator: (v) => FormValidators.confirmarPassword(v, _passwordCtrl.text),
           ),
         ],
       ),
@@ -813,7 +1085,7 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Completa estos 3 pasos para generar tu cuenta bancaria digital y tu acceso inmediato.',
+                    'Validamos tus datos al instante para que completes tu registro sin contratiempos.',
                     style: TextStyle(
                       fontSize: 13,
                       color: AppColors.textSecondary,

@@ -17,6 +17,8 @@ class CustomTextField extends StatefulWidget {
   final int maxLines;
   final List<TextInputFormatter>? inputFormatters;
   final void Function(String)? onChanged;
+  final String? helperText;
+  final AutovalidateMode autovalidateMode;
 
   const CustomTextField({
     super.key,
@@ -34,6 +36,8 @@ class CustomTextField extends StatefulWidget {
     this.maxLines = 1,
     this.inputFormatters,
     this.onChanged,
+    this.helperText,
+    this.autovalidateMode = AutovalidateMode.onUserInteraction,
   });
 
   @override
@@ -64,6 +68,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
           keyboardType: widget.keyboardType,
           obscureText: widget.isPassword && _obscureText,
           validator: widget.validator,
+          autovalidateMode: widget.autovalidateMode,
           readOnly: widget.readOnly,
           onTap: widget.onTap,
           maxLines: widget.maxLines,
@@ -76,6 +81,13 @@ class _CustomTextFieldState extends State<CustomTextField> {
           ),
           decoration: InputDecoration(
             hintText: widget.hintText ?? widget.hint,
+            helperText: widget.helperText,
+            helperMaxLines: 2,
+            errorMaxLines: 2,
+            helperStyle: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 11.5,
+            ),
             hintStyle: const TextStyle(
               color: AppColors.textMuted,
               fontSize: 14,

@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/form_validators.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
@@ -136,16 +137,11 @@ class _RegistroPortalScreenState extends State<RegistroPortalScreen> {
                         children: [
                           CustomTextField(
                             label: 'Correo registrado',
-                            hint: 'ejemplo@banca.com',
+                            hint: 'tu.correo@gmail.com',
                             controller: _correoController,
                             keyboardType: TextInputType.emailAddress,
-                            prefixIcon: Icons.mail_outline_rounded,
-                            validator: (val) {
-                              if (val == null || val.trim().isEmpty) {
-                                return 'Ingresa tu correo';
-                              }
-                              return null;
-                            },
+                            prefixIcon: Icons.alternate_email_rounded,
+                            validator: FormValidators.correo,
                           ),
                           const SizedBox(height: 20),
                           CustomTextField(
@@ -154,12 +150,12 @@ class _RegistroPortalScreenState extends State<RegistroPortalScreen> {
                             controller: _passwordController,
                             isPassword: true,
                             prefixIcon: Icons.lock_outline_rounded,
-                            validator: (val) {
-                              if (val == null || val.length < 8) {
-                                return 'Mínimo 8 caracteres';
+                            onChanged: (_) {
+                              if (_confirmPasswordController.text.isNotEmpty) {
+                                _formKey.currentState?.validate();
                               }
-                              return null;
                             },
+                            validator: FormValidators.password,
                           ),
                           const SizedBox(height: 20),
                           CustomTextField(
@@ -168,12 +164,10 @@ class _RegistroPortalScreenState extends State<RegistroPortalScreen> {
                             controller: _confirmPasswordController,
                             isPassword: true,
                             prefixIcon: Icons.lock_reset_rounded,
-                            validator: (val) {
-                              if (val != _passwordController.text) {
-                                return 'Las contraseñas no coinciden';
-                              }
-                              return null;
-                            },
+                            validator: (val) => FormValidators.confirmarPassword(
+                              val,
+                              _passwordController.text,
+                            ),
                           ),
                           const SizedBox(height: 28),
                           CustomButton(

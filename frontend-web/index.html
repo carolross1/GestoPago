@@ -78,7 +78,7 @@
       <div id="auth-alert" class="hidden mb-5 p-3.5 rounded-xl text-xs font-semibold flex items-center gap-2.5"></div>
 
       <!-- Formulario Login -->
-      <form id="form-login" onsubmit="app.handleLogin(event)" class="space-y-4">
+      <form id="form-login" novalidate onsubmit="app.handleLogin(event)" class="space-y-4">
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1.5">Correo Electrónico</label>
           <div class="relative">
@@ -109,24 +109,24 @@
       </form>
 
       <!-- Formulario Crear Cuenta Nueva -->
-      <form id="form-crear" onsubmit="app.handleCrearCuenta(event)" class="space-y-4 hidden">
+      <form id="form-crear" novalidate onsubmit="app.handleCrearCuenta(event)" class="space-y-4 hidden">
         <p class="text-xs font-bold text-brand-700 uppercase tracking-wider">1. Datos Personales</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Nombre *</label>
-            <input type="text" id="new-nombre" required placeholder="Ej. Carol" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Primer Nombre *</label>
+            <input type="text" id="new-nombre" required maxlength="50" placeholder="Ej. Carol (mín. 2 letras)" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Segundo Nombre</label>
-            <input type="text" id="new-segundo-nombre" placeholder="Opcional" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Segundo Nombre (Opcional)</label>
+            <input type="text" id="new-segundo-nombre" maxlength="50" placeholder="Opcional (máx. 2 nombres)" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Apellido Paterno *</label>
-            <input type="text" id="new-ap-paterno" required placeholder="Ej. Rios" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Apellido Paterno * (mín. 3)</label>
+            <input type="text" id="new-ap-paterno" required maxlength="50" placeholder="Ej. Rios" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Apellido Materno *</label>
-            <input type="text" id="new-ap-materno" required placeholder="Ej. Lopez" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Apellido Materno * (mín. 3)</label>
+            <input type="text" id="new-ap-materno" required maxlength="50" placeholder="Ej. Lopez" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
           </div>
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">Fecha de Nacimiento *</label>
@@ -171,24 +171,16 @@
           </div>
         </div>
 
-        <p class="text-xs font-bold text-brand-700 uppercase tracking-wider pt-2">2. Domicilio y Datos Laborales</p>
+        <p class="text-xs font-bold text-brand-700 uppercase tracking-wider pt-2">2. Domicilio (Autocompletado por Código Postal) y Datos Laborales</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Calle *</label>
-            <input type="text" id="new-calle" required placeholder="Ej. Hidalgo" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
-          </div>
-          <div class="grid grid-cols-2 gap-2">
-            <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">Núm. Ext *</label>
-              <input type="number" id="new-num-ext" required min="1" placeholder="120" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">C.P. *</label>
-              <input type="number" id="new-cp" required min="1000" max="99999" placeholder="37800" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
-            </div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Código Postal (5 dígitos) *</label>
+            <input type="text" inputmode="numeric" id="new-cp" required maxlength="5" placeholder="Ej. 37800 (llena tu dirección)" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+            <p id="cp-status-msg" class="text-[11px] font-semibold mt-1 hidden"></p>
           </div>
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">Colonia *</label>
+            <select id="new-colonia-select" onchange="app.handleColoniaSelectChange()" class="hidden w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white mb-1.5"></select>
             <input type="text" id="new-colonia" required placeholder="Centro" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
           </div>
           <div>
@@ -200,20 +192,39 @@
             <input type="text" id="new-estado" required placeholder="Guanajuato" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">País *</label>
-            <input type="text" id="new-pais" required value="Mexico" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Calle *</label>
+            <input type="text" id="new-calle" required placeholder="Ej. Hidalgo" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Núm. Ext *</label>
+              <input type="text" inputmode="numeric" id="new-num-ext" required maxlength="6" placeholder="120" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">País *</label>
+              <input type="text" id="new-pais" required value="Mexico" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+            </div>
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Ocupación *</label>
-            <input type="text" id="new-ocupacion" required placeholder="Estudiante" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Profesión / Ocupación (SINCO) *</label>
+            <select id="new-ocupacion" onchange="app.handleProfesionChange()" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white">
+              <option value="Estudiante">Estudiante</option>
+            </select>
           </div>
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">Empresa / Escuela *</label>
-            <input type="text" id="new-empresa" required placeholder="Universidad" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+            <input type="text" id="new-empresa" required placeholder="Universidad o Independiente" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
           </div>
-          <div class="sm:col-span-2">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Tabulador de Sueldo *</label>
+            <select id="new-tabulador" onchange="app.handleTabuladorChange()" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white">
+              <option value="TAB_1">De $0 a $10,000 MXN</option>
+            </select>
+          </div>
+          <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">Ingreso Mensual ($ MXN) *</label>
-            <input type="number" step="0.01" min="1" id="new-ingreso" required placeholder="15000.00" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+            <input type="text" inputmode="decimal" id="new-ingreso" required placeholder="Ej. 8500.00" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+            <p id="tabulador-rango-hint" class="text-[11px] text-slate-500 mt-1">Rango permitido: $0.01 a $10,000 MXN</p>
           </div>
         </div>
 
@@ -254,7 +265,7 @@
       </form>
 
       <!-- Formulario Registro -->
-      <form id="form-registro" onsubmit="app.handleRegistro(event)" class="space-y-4 hidden">
+      <form id="form-registro" novalidate onsubmit="app.handleRegistro(event)" class="space-y-4 hidden">
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1.5">Correo del Cliente Registrado</label>
           <div class="relative">
@@ -730,6 +741,7 @@
 
   <!-- Scripts de la Aplicación -->
   <script src="js/api.js"></script>
+  <script src="js/validators.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

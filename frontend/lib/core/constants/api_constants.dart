@@ -26,6 +26,8 @@ class ApiConstants {
   // Catálogos y Productos
   static const String productos = '/productos';
   static const String nacionalidades = '/catalogos/nacionalidades';
+  static const String codigoPostal = '/catalogos/cp';
+  static const String profesiones = '/catalogos/profesiones';
 
   // Transacciones
   static const String solicitar2fa = '/transacciones/2fa';

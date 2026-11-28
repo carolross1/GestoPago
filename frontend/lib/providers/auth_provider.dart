@@ -167,6 +167,30 @@ class AuthProvider extends ChangeNotifier {
     ];
   }
 
+  /// Consulta dirección por Código Postal vía backend (/catalogos/cp/{cp}).
+  Future<Map<String, dynamic>?> consultarCodigoPostal(String cp) async {
+    final response = await _api.get<Map<String, dynamic>>(
+      '${ApiConstants.codigoPostal}/$cp',
+      fromJson: (json) => json is Map<String, dynamic> ? json : <String, dynamic>{},
+    );
+    if (response.exito && response.datos != null && response.datos!.isNotEmpty) {
+      return response.datos;
+    }
+    return null;
+  }
+
+  /// Obtiene catálogo oficial de profesiones (INEGI SINCO) y tabulador salarial.
+  Future<Map<String, dynamic>?> obtenerCatalogoProfesiones() async {
+    final response = await _api.get<Map<String, dynamic>>(
+      ApiConstants.profesiones,
+      fromJson: (json) => json is Map<String, dynamic> ? json : <String, dynamic>{},
+    );
+    if (response.exito && response.datos != null && response.datos!.isNotEmpty) {
+      return response.datos;
+    }
+    return null;
+  }
+
   Future<bool> _cargarPerfilCliente(String correo) async {
     final response = await _api.post<List<ClienteResponse>>(
       ApiConstants.buscarClientes,
