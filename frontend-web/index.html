@@ -679,19 +679,17 @@
           <p id="recibo-subtitulo" class="text-xs text-slate-500 mt-1">Transacción autorizada y aplicada con GestoPago</p>
         </div>
 
-        <!-- Recibo Digital Estilo Ticket -->
+        <!-- Recibo Digital Estilo Ticket (sin IDs internos) -->
         <div class="ticket-receipt p-5 border text-xs text-left space-y-2">
           <div class="flex justify-between"><span class="text-slate-500">Estado:</span><span id="recibo-estado" class="font-extrabold text-emerald-600">EXITOSA</span></div>
           <div class="flex justify-between"><span class="text-slate-500">Mensaje:</span><span id="recibo-mensaje" class="font-semibold text-slate-700 text-right">-</span></div>
           <div class="flex justify-between"><span class="text-slate-500">UPC (10 dígitos):</span><span id="recibo-upc" class="font-mono font-extrabold text-brand-700 text-sm">-</span></div>
           <div class="flex justify-between"><span class="text-slate-500">Fecha y Hora:</span><span id="recibo-fecha" class="font-semibold text-slate-700">-</span></div>
-          <div class="flex justify-between"><span class="text-slate-500">Hora Local:</span><span id="recibo-hora-local" class="font-mono font-semibold text-slate-700">-</span></div>
-          <div class="flex justify-between"><span class="text-slate-500">Servicio (ID):</span><span id="recibo-servicio" class="font-bold text-slate-800 text-right">-</span></div>
-          <div class="flex justify-between"><span class="text-slate-500">Producto (ID):</span><span id="recibo-producto" class="font-semibold text-slate-700 text-right">-</span></div>
-          <div class="flex justify-between"><span class="text-slate-500">ID Dispositivo:</span><span id="recibo-dispositivo" class="font-mono font-bold text-slate-800">-</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Servicio:</span><span id="recibo-servicio" class="font-bold text-slate-800 text-right">-</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Producto:</span><span id="recibo-producto" class="font-semibold text-slate-700 text-right">-</span></div>
           <div class="flex justify-between"><span class="text-slate-500">Referencia:</span><span id="recibo-destino" class="font-bold text-slate-800">-</span></div>
-          <div id="row-recibo-idtx" class="flex justify-between"><span class="text-slate-500">ID Transacción:</span><span id="recibo-id-tx" class="font-mono font-semibold text-slate-700">-</span></div>
           <div id="row-recibo-auth" class="flex justify-between"><span class="text-slate-500">Autorización:</span><span id="recibo-auth" class="font-mono font-semibold text-slate-700">-</span></div>
+          <div id="row-recibo-codigo" class="hidden flex justify-between"><span class="text-slate-500">Código de respuesta:</span><span id="recibo-codigo" class="font-mono font-bold text-red-600">-1</span></div>
           <div class="flex justify-between border-t border-slate-200 pt-2"><span id="recibo-monto-label" class="text-slate-600 font-bold">Importe Pagado:</span><span id="recibo-monto" class="text-base font-extrabold text-slate-900">$0.00</span></div>
           <div class="flex justify-between"><span class="text-slate-500">Saldo en Cuenta:</span><span id="recibo-nuevo-saldo" class="font-bold text-emerald-600">$0.00</span></div>
           <div id="recibo-leyenda-box" class="mt-3 p-3 rounded-xl bg-brand-50 border border-brand-200 text-[11px] text-slate-700 leading-relaxed">

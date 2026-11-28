@@ -319,8 +319,8 @@ class TransaccionServiceImplTest {
     }
 
     @Test
-    @DisplayName("En modo simulación, si GestoPago falla por red/IP se aprueba simulado y descuenta saldo")
-    void modoSimulacionApruebaCuandoGestoPagoFalla() {
+    @DisplayName("Si GestoPago falla por red/IP devuelve ticket rechazo -1 sin descontar saldo y envia correo")
+    void modoSimulacionRechazaCuandoGestoPagoFalla() {
         ReflectionTestUtils.setField(transaccionService, "modoPruebasAprobar", true);
         cuentaYClienteValidos();
         when(saldoRepository.findFirstByCuentaIdOrderByFechaDesc(10L)).thenReturn(Optional.of(saldoMock));
@@ -330,11 +330,14 @@ class TransaccionServiceImplTest {
 
         PagoResponse resultado = transaccionService.procesarPago(pagoTelefono("100.00", "482915"));
 
-        assertNotNull(resultado.getIdTx());
-        assertTrue(resultado.getIdTx().startsWith("SIM-"));
-        assertTrue(resultado.getNumAutorizacion().startsWith("AUTH-"));
-        assertEquals(new BigDecimal("400.00"), resultado.getSaldoRestante());
-        verify(saldoRepository).save(any(Saldo.class));
+        assertFalse(resultado.isAprobada());
+        assertEquals("RECHAZADA", resultado.getEstado());
+        assertEquals("-1", resultado.getCodigoProveedor());
+        assertEquals("Transacción no válida", resultado.getMensajeProveedor());
+        assertTrue(resultado.getUpc().matches("^\\d{10}$"));
+        assertEquals(new BigDecimal("500.00"), resultado.getSaldoRestante());
+        verify(saldoRepository, never()).save(any(Saldo.class));
+        verify(servicioNotificacionPago).enviarComprobante(any(ComprobantePagoCorreo.class));
     }
 
     @Test

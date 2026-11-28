@@ -125,20 +125,8 @@ public class ServicioNotificacionPago {
         String servicio = HtmlUtils.htmlEscape(datos.getServicio() != null ? datos.getServicio() : "Servicio");
         String producto = HtmlUtils.htmlEscape(datos.getProducto() != null ? datos.getProducto() : "Producto");
         String destino = HtmlUtils.htmlEscape(datos.getDestino() != null ? datos.getDestino() : "-");
-        String idTx = HtmlUtils.htmlEscape(datos.getIdTx() != null ? datos.getIdTx() : "-");
         String autorizacion = HtmlUtils.htmlEscape(datos.getNumAutorizacion() != null ? datos.getNumAutorizacion() : "-");
         String upc = HtmlUtils.htmlEscape(datos.getUpc() != null ? datos.getUpc() : "-");
-        String idServicio = datos.getIdServicio() != null ? String.valueOf(datos.getIdServicio()) : "-";
-        String idProducto = datos.getIdProducto() != null ? String.valueOf(datos.getIdProducto()) : "-";
-        String idDispositivo = HtmlUtils.htmlEscape(
-                datos.getIdDispositivo() != null && !datos.getIdDispositivo().isBlank()
-                        ? datos.getIdDispositivo() : "GPS83-TPV-17");
-        String horaLocal = HtmlUtils.htmlEscape(
-                datos.getHoraLocal() != null && !datos.getHoraLocal().isBlank()
-                        ? datos.getHoraLocal()
-                        : (datos.getFechaHora() != null
-                                ? datos.getFechaHora().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
-                                : ""));
         String leyenda = HtmlUtils.htmlEscape(
                 datos.getLeyenda() != null && !datos.getLeyenda().isBlank()
                         ? datos.getLeyenda()
@@ -160,10 +148,10 @@ public class ServicioNotificacionPago {
         String titulo = aprobada ? "Comprobante de Pago" : "OPERACIÓN RECHAZADA";
         String subtitulo = aprobada
                 ? "GestoPago &bull; Transacción exitosa"
-                : "GestoPago &bull; Código " + codigoResp + " &bull; " + mensajeOp;
+                : "GestoPago &bull; " + mensajeOp;
         String intro = aprobada
                 ? "Tu pago ha sido procesado correctamente. A continuación te presentamos el ticket oficial de la operación:"
-                : "<strong style='color:#B91C1C;'>Transacción no válida (Código " + codigoResp + ").</strong> GestoPago no pudo procesar esta operación y <strong>no se realizó ningún cargo a tu saldo</strong>. Conserva este ticket con tu UPC, fecha y leyenda del producto para cualquier reclamación:";
+                : "<strong style='color:#B91C1C;'>Transacción no válida.</strong> GestoPago no pudo procesar esta operación y <strong>no se realizó ningún cargo a tu saldo</strong>. Conserva este ticket con tu UPC, fecha y leyenda del producto para cualquier reclamación:";
         String cajaBg = aprobada ? "#F5F3FF" : "#FEF2F2";
         String cajaBorder = aprobada ? "#DDD6FE" : "#FECACA";
         String cajaColor = aprobada ? "#4C1D95" : "#991B1B";
@@ -185,20 +173,17 @@ public class ServicioNotificacionPago {
                 + "        <p style='margin: 0 0 12px 0; font-size: 15px;'>Hola, <strong>" + nombre + "</strong>:</p>"
                 + "        <p style='margin: 0 0 18px 0; font-size: 13.5px; line-height: 1.5; color: #4b5563;'>" + intro + "</p>"
                 + "        <table width='100%' cellpadding='0' cellspacing='0' style='border-collapse: collapse; margin-bottom: 18px; font-size: 13px;'>"
-                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>Estado:</td><td style='padding: 9px 0; font-weight: 700; color: " + (aprobada ? "#047857" : "#DC2626") + "; text-align: right;'>" + (aprobada ? "EXITOSA" : "OPERACIÓN RECHAZADA (" + codigoResp + ")") + "</td></tr>"
+                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>Estado:</td><td style='padding: 9px 0; font-weight: 700; color: " + (aprobada ? "#047857" : "#DC2626") + "; text-align: right;'>" + (aprobada ? "EXITOSA" : "OPERACIÓN RECHAZADA") + "</td></tr>"
                 + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>Mensaje:</td><td style='padding: 9px 0; font-weight: 600; text-align: right;'>" + mensajeOp + "</td></tr>"
                 + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>UPC (10 dígitos):</td><td style='padding: 9px 0; font-family: monospace; font-size: 14px; font-weight: 800; color: #5B21B6; text-align: right;'>" + upc + "</td></tr>"
                 + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>Fecha y hora:</td><td style='padding: 9px 0; text-align: right;'>" + fecha + " " + hora + "</td></tr>"
-                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>Hora local (GestoPago):</td><td style='padding: 9px 0; font-family: monospace; text-align: right;'>" + horaLocal + "</td></tr>"
-                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>Servicio / ID Servicio:</td><td style='padding: 9px 0; font-weight: 600; text-align: right;'>" + servicio + " (ID: " + idServicio + ")</td></tr>"
-                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>Producto / ID Producto:</td><td style='padding: 9px 0; text-align: right;'>" + producto + " (ID: " + idProducto + ")</td></tr>"
-                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>ID de Dispositivo:</td><td style='padding: 9px 0; font-family: monospace; font-weight: 600; text-align: right;'>" + idDispositivo + "</td></tr>"
+                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>Servicio:</td><td style='padding: 9px 0; font-weight: 600; text-align: right;'>" + servicio + "</td></tr>"
+                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>Producto:</td><td style='padding: 9px 0; text-align: right;'>" + producto + "</td></tr>"
                 + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>Destino / Referencia:</td><td style='padding: 9px 0; font-weight: 600; text-align: right;'>" + destino + "</td></tr>"
                 + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>Cuenta origen:</td><td style='padding: 9px 0; text-align: right;'>" + cuenta + "</td></tr>"
                 + (aprobada
                     ? "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>No. de autorización:</td><td style='padding: 9px 0; font-weight: 600; text-align: right;'>" + autorizacion + "</td></tr>"
-                      + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>ID Transacción GestoPago:</td><td style='padding: 9px 0; text-align: right;'>" + idTx + "</td></tr>"
-                    : "")
+                    : "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>Código de respuesta:</td><td style='padding: 9px 0; font-family: monospace; font-weight: 700; color: #DC2626; text-align: right;'>" + codigoResp + "</td></tr>")
                 + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280; font-weight: 600;'>" + (aprobada ? "Monto pagado:" : "Monto intentado:") + "</td><td style='padding: 9px 0; font-size: 16px; font-weight: 700; color: " + (aprobada ? "#047857" : "#DC2626") + "; text-align: right;'>$" + datos.getMonto() + " MXN</td></tr>"
                 + "          <tr><td style='padding: 9px 0; color: #6b7280;'>Saldo en cuenta:</td><td style='padding: 9px 0; font-weight: 600; text-align: right;'>$" + datos.getSaldoRestante() + " MXN</td></tr>"
                 + "        </table>"

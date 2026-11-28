@@ -193,28 +193,23 @@ class ComprobanteScreen extends StatelessWidget {
 
                     _buildDatoRow(
                       'Estado',
-                      aprobada ? 'EXITOSA' : 'OPERACIÓN RECHAZADA (${pago.codigoProveedor})',
+                      aprobada ? 'EXITOSA' : 'OPERACIÓN RECHAZADA',
                       isBold: true,
                       color: statusColor,
                     ),
                     _buildDatoRow('Mensaje', pago.mensajeProveedor, isBold: !aprobada),
                     _buildDatoRow('Servicio', servicioNombre, isBold: true),
                     _buildDatoRow('Producto', productoNombre),
-                    _buildDatoRow('ID Servicio', servId?.toString() ?? '-'),
-                    _buildDatoRow('ID Producto', pago.idProducto?.toString() ?? '-'),
-                    _buildDatoRow('ID Dispositivo', pago.idDispositivo, isBold: true),
                     _buildDatoRow(
                       pago.tipoDestino == 'TELEFONO' ? 'Teléfono destino' : 'Referencia',
                       pago.destino,
                     ),
                     _buildDatoRow('Cuenta emisora', _enmascararCuenta(pago.numeroCuenta)),
                     _buildDatoRow('Fecha y Hora', '${pago.fecha ?? ""} ${pago.hora ?? ""}'),
-                    if (pago.horaLocal.isNotEmpty)
-                      _buildDatoRow('Hora local (GestoPago)', pago.horaLocal),
-                    if (aprobada) ...[
-                      _buildDatoRow('ID Transacción (GestoPago)', pago.idTx),
-                      _buildDatoRow('No. de Autorización', pago.numAutorizacion, isBold: true),
-                    ],
+                    if (aprobada)
+                      _buildDatoRow('No. de Autorización', pago.numAutorizacion, isBold: true)
+                    else
+                      _buildDatoRow('Código de respuesta', pago.codigoProveedor, isBold: true, color: AppColors.error),
                     const Divider(height: 22),
 
                     _buildDatoRow(

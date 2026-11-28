@@ -195,38 +195,19 @@ public class TransaccionServiceImpl implements TransaccionService {
         log.info("Enviando transacción a GestoPago para producto={} servicio={} upc={} horaLocal={} dispositivo={}",
                 request.getIdProducto(), request.getIdServicio(), upc, horaLocal, dispositivoActual);
 
-        // En ambiente de pruebas, el destino "5500000000" o "RECHAZO-1" permite probar el ticket de rechazo -1
-        boolean simularRechazoDemo = modoPruebasAprobar
-                && ("5500000000".equals(destino) || "RECHAZO-1".equalsIgnoreCase(destino));
-
-        GestoPagoTxResponse response = null;
-        if (simularRechazoDemo) {
+        GestoPagoTxResponse response;
+        try {
+            response = gestoPagoTxClient.enviarTransaccion(randomParam, payloadCifrado);
+        } catch (Exception e) {
+            log.warn("GestoPago no pudo procesar la transacción ({}). Respondiendo -1 (OPERACIÓN RECHAZADA) sin descontar saldo.",
+                    e.getMessage());
             response = construirRespuestaRechazada(CODIGO_RECHAZO_PROVEEDOR, MENSAJE_RECHAZO_PROVEEDOR);
-        } else {
-            try {
-                response = gestoPagoTxClient.enviarTransaccion(randomParam, payloadCifrado);
-            } catch (Exception e) {
-                if (modoPruebasAprobar) {
-                    log.warn("API externa GestoPago no disponible ({}). Activando simulación controlada de pago.",
-                            e.getMessage());
-                    response = construirRespuestaSimulada(upc,
-                            "Transacción aprobada (Simulación ambiente de pruebas)");
-                } else {
-                    log.error("Fallo al invocar GestoPago sendTx: {}. Generando ticket de rechazo -1.", e.getMessage());
-                    response = construirRespuestaRechazada(CODIGO_RECHAZO_PROVEEDOR, MENSAJE_RECHAZO_PROVEEDOR);
-                }
-            }
         }
 
         // 7. Evaluar respuesta del proveedor
         if (response == null || response.getMensaje() == null) {
-            if (modoPruebasAprobar) {
-                log.warn("GestoPago devolvió respuesta vacía. Activando simulación controlada de pago.");
-                response = construirRespuestaSimulada(upc,
-                        "Transacción aprobada (Simulación ambiente de pruebas)");
-            } else {
-                response = construirRespuestaRechazada(CODIGO_RECHAZO_PROVEEDOR, MENSAJE_RECHAZO_PROVEEDOR);
-            }
+            log.warn("GestoPago devolvió respuesta vacía. Respondiendo -1 (OPERACIÓN RECHAZADA) sin descontar saldo.");
+            response = construirRespuestaRechazada(CODIGO_RECHAZO_PROVEEDOR, MENSAJE_RECHAZO_PROVEEDOR);
         }
 
         String codigoRespuesta = response.getMensaje().getCodigo();
@@ -235,11 +216,12 @@ public class TransaccionServiceImpl implements TransaccionService {
         boolean esExito = CODIGO_EXITO_PROVEEDOR.equals(codigoRespuesta) || "00".equals(codigoRespuesta);
         boolean esRechazoMenosUno = CODIGO_RECHAZO_PROVEEDOR.equals(codigoRespuesta != null ? codigoRespuesta.trim() : "");
 
-        if (esRechazoMenosUno) {
-            // Requerimiento: cuando GestoPago responde -1, imprimir/enviar ticket de OPERACIÓN RECHAZADA sin descontar saldo
+        // Si GestoPago responde -1 o en modo simulación rechaza la operación (p.ej. IP bloqueada código 05),
+        // se devuelve el ticket OPERACIÓN RECHAZADA (-1, "Transacción no válida") sin descontar saldo y se envía el correo.
+        if (esRechazoMenosUno || (!esExito && modoPruebasAprobar)) {
             String mensajeFinal = MENSAJE_RECHAZO_PROVEEDOR;
-            log.warn("Operación rechazada por GestoPago (codigo=-1). Cuenta={} UPC={} Servicio={} Producto={}",
-                    cuenta.getNumeroCuenta(), upc, request.getIdServicio(), request.getIdProducto());
+            log.warn("Operación rechazada por GestoPago (codigo={} -> -1). Cuenta={} UPC={} Servicio={} Producto={}",
+                    codigoRespuesta, cuenta.getNumeroCuenta(), upc, request.getIdServicio(), request.getIdProducto());
 
             enviarComprobantePorCorreo(cliente, cuenta, request, destino, montoPago,
                     saldoActual.setScale(2, RoundingMode.HALF_UP),
@@ -249,8 +231,8 @@ public class TransaccionServiceImpl implements TransaccionService {
             return PagoResponse.builder()
                     .aprobada(false)
                     .estado("RECHAZADA")
-                    .idTx(response.getIdTx() != null ? response.getIdTx() : "-1")
-                    .numAutorizacion(response.getNumAutorizacion() != null ? response.getNumAutorizacion() : "N/A")
+                    .idTx("-1")
+                    .numAutorizacion("N/A")
                     .codigoProveedor(CODIGO_RECHAZO_PROVEEDOR)
                     .mensajeProveedor(mensajeFinal)
                     .upc(upc)
@@ -270,18 +252,7 @@ public class TransaccionServiceImpl implements TransaccionService {
                     .build();
         }
 
-        if (!esExito && modoPruebasAprobar) {
-            log.info("Modo simulación activo: GestoPago retornó [codigo={} texto={}]. Aprobando pago en ambiente de pruebas.",
-                    codigoRespuesta, textoRespuesta);
-            codigoRespuesta = CODIGO_EXITO_PROVEEDOR;
-            textoRespuesta = "Transacción aprobada (Simulación ambiente de pruebas)";
-            if (esValorInvalidoProveedor(response.getIdTx())) {
-                response.setIdTx("SIM-" + upc);
-            }
-            if (esValorInvalidoProveedor(response.getNumAutorizacion())) {
-                response.setNumAutorizacion("AUTH-" + upc.substring(upc.length() - 6));
-            }
-        } else if (!esExito) {
+        if (!esExito) {
             log.warn("Transacción rechazada por GestoPago: codigo={} texto={}", codigoRespuesta, textoRespuesta);
             enviarComprobantePorCorreo(cliente, cuenta, request, destino, montoPago,
                     saldoActual.setScale(2, RoundingMode.HALF_UP),
@@ -537,7 +508,7 @@ public class TransaccionServiceImpl implements TransaccionService {
         String base = productoOpt.map(CatalogoProductosEntity::getLegend)
                 .filter(l -> l != null && !l.isBlank())
                 .orElse("Servicio " + nombreServicio);
-        return base + ". Para aclaraciones o reclamaciones conserva este ticket con tu folio UPC de 10 dígitos, fecha, hora local e IDs de operación.";
+        return base + ". Para aclaraciones o reclamaciones conserva este ticket con tu folio UPC de 10 dígitos, fecha y hora.";
     }
 
     private GestoPagoTxResponse construirRespuestaRechazada(String codigo, String texto) {
@@ -564,22 +535,6 @@ public class TransaccionServiceImpl implements TransaccionService {
                 .stream()
                 .filter(p -> idProducto.equals(p.getIdProducto()))
                 .findFirst();
-    }
-
-    private GestoPagoTxResponse construirRespuestaSimulada(String upc, String texto) {
-        GestoPagoTxResponse sim = new GestoPagoTxResponse();
-        sim.setIdTx("SIM-" + upc);
-        sim.setNumAutorizacion("AUTH-" + upc.substring(upc.length() - 6));
-        com.proyecto.servicios.model.gestopago.producto.MensajeDTO msg =
-                new com.proyecto.servicios.model.gestopago.producto.MensajeDTO();
-        msg.setCodigo(CODIGO_EXITO_PROVEEDOR);
-        msg.setTexto(texto);
-        sim.setMensaje(msg);
-        return sim;
-    }
-
-    private boolean esValorInvalidoProveedor(String valor) {
-        return valor == null || valor.isBlank() || "-1".equals(valor.trim()) || "0".equals(valor.trim());
     }
 
     private String generarUpc() {
