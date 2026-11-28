@@ -12,14 +12,47 @@ class AuthProvider extends ChangeNotifier {
   final ApiClient _api = ApiClient();
   AuthStatus _status = AuthStatus.initial;
   String? _errorMessage;
+  String? _sessionClosedNotice;
   ClienteResponse? _currentCliente;
   String? _token;
+  bool _handlingExpiry = false;
+
+  AuthProvider() {
+    _api.onSessionExpired = _handleRemoteSessionClosed;
+  }
 
   AuthStatus get status => _status;
   bool get isAuthenticated => _status == AuthStatus.authenticated;
   String? get errorMessage => _errorMessage;
   ClienteResponse? get currentCliente => _currentCliente;
   String? get token => _token;
+
+  String? consumeSessionClosedNotice() {
+    final msg = _sessionClosedNotice;
+    _sessionClosedNotice = null;
+    return msg;
+  }
+
+  void _handleRemoteSessionClosed(String mensaje) {
+    if (_handlingExpiry || _status != AuthStatus.authenticated) return;
+    _handlingExpiry = true;
+    _sessionClosedNotice = mensaje;
+    logout(notificarServidor: false).whenComplete(() {
+      _handlingExpiry = false;
+    });
+  }
+
+  /// Verifica contra el backend si el token sigue activo (sesión única omnicanal).
+  Future<bool> verificarSesionActiva() async {
+    if (_token == null || _token!.isEmpty || _status != AuthStatus.authenticated) {
+      return false;
+    }
+    final resp = await _api.get<Map<String, dynamic>>(
+      ApiConstants.verificarSesion,
+      fromJson: (json) => json is Map<String, dynamic> ? json : <String, dynamic>{},
+    );
+    return resp.exito;
+  }
 
   Future<void> checkExistingSession() async {
     await _api.init();
@@ -229,7 +262,12 @@ class AuthProvider extends ChangeNotifier {
     return false;
   }
 
-  Future<void> logout() async {
+  Future<void> logout({bool notificarServidor = true}) async {
+    if (notificarServidor && _token != null && _token!.isNotEmpty) {
+      try {
+        await _api.post<void>(ApiConstants.logout);
+      } catch (_) {}
+    }
     _token = null;
     _currentCliente = null;
     await _api.setToken(null);

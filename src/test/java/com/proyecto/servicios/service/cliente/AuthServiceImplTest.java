@@ -2,6 +2,7 @@ package com.proyecto.servicios.service.cliente;
 
 import com.proyecto.servicios.entity.cliente.Cliente;
 import com.proyecto.servicios.entity.cliente.Login;
+import com.proyecto.servicios.entity.cliente.Sesion;
 import com.proyecto.servicios.exception.cliente.CorreoNoEncontradoException;
 import com.proyecto.servicios.exception.cliente.CredencialesInvalidasException;
 import com.proyecto.servicios.exception.cliente.LoginNoRegistradoException;
@@ -197,5 +198,51 @@ class AuthServiceImplTest {
         assertFalse(authService.correoDisponible("existente@correo.com"));
         assertFalse(authService.correoDisponible("   "));
         assertFalse(authService.correoDisponible(null));
+    }
+
+    @Test
+    void login_cierraSesionesPreviasActivasParaGarantizarSesionUnica() {
+        Cliente cliente = clienteConId(1L);
+        Login login = new Login();
+        login.setId(10L);
+        login.setClienteId(1L);
+        login.setPasswordHash("hash-guardado");
+
+        Sesion previa = new Sesion();
+        previa.setId(99L);
+        previa.setLoginId(10L);
+        previa.setToken("token-viejo");
+        previa.setActiva(true);
+
+        LoginRequest request = new LoginRequest();
+        request.setCorreo(cliente.getCorreo());
+        request.setPassword("password123");
+
+        when(clienteRepository.findByCorreo(cliente.getCorreo())).thenReturn(Optional.of(cliente));
+        when(loginRepository.findByClienteId(1L)).thenReturn(Optional.of(login));
+        when(passwordEncoder.matches("password123", "hash-guardado")).thenReturn(true);
+        when(sesionRepository.findByLoginIdAndActivaTrue(10L)).thenReturn(java.util.List.of(previa));
+        when(jwtUtil.generarToken(1L)).thenReturn("token-nuevo");
+
+        LoginResponse resp = authService.login(request);
+
+        assertEquals("token-nuevo", resp.getToken());
+        assertFalse(previa.getActiva());
+        verify(sesionRepository).saveAll(java.util.List.of(previa));
+        verify(sesionRepository).save(any(Sesion.class));
+    }
+
+    @Test
+    void cerrarSesion_desactivaTokenActivo() {
+        Sesion sesion = new Sesion();
+        sesion.setLoginId(10L);
+        sesion.setToken("tok-activo");
+        sesion.setActiva(true);
+        when(sesionRepository.findByToken("tok-activo")).thenReturn(Optional.of(sesion));
+
+        authService.cerrarSesion("tok-activo");
+
+        assertFalse(sesion.getActiva());
+        verify(sesionRepository).save(sesion);
     }
 }

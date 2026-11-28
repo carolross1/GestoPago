@@ -2,6 +2,8 @@
 const API_BASE = 'https://gestopago-i7hw.onrender.com';
 
 const API = {
+  onSessionExpired: null,
+
   getToken() {
     return localStorage.getItem('gestopago_token');
   },
@@ -71,14 +73,18 @@ const API = {
 
       const data = await response.json().catch(() => ({}));
 
-      if (response.status === 401 && !endpoint.includes('/auth/login')) {
+      if (response.status === 401 && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/logout')) {
+        const msgSesion = data.mensaje || 'Tu sesión fue cerrada porque se inició sesión en otro dispositivo.';
+        const teniaToken = Boolean(this.getToken());
         this.logout();
-        window.location.reload();
+        if (teniaToken && typeof this.onSessionExpired === 'function') {
+          this.onSessionExpired(msgSesion);
+        }
         return {
           ok: false,
           status: 401,
           data: null,
-          mensaje: 'Tu sesión expiró. Inicia sesión nuevamente.',
+          mensaje: msgSesion,
           errores: []
         };
       }
@@ -127,6 +133,14 @@ const API = {
       method: 'POST',
       body: JSON.stringify({ correo })
     });
+  },
+
+  async verificarSesion() {
+    return this.request('/auth/sesion', { method: 'GET' });
+  },
+
+  async cerrarSesionRemota() {
+    return this.request('/auth/logout', { method: 'POST' });
   },
 
   async crearCliente(payload) {

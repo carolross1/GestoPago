@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/curp_rfc_calculator.dart';
 import '../../core/utils/form_validators.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/custom_button.dart';
@@ -36,6 +37,8 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
   final _rfcCtrl = TextEditingController();
   DateTime? _fechaNacimiento;
   String _sexo = 'M';
+  String _ultimoPrefijoCurp = '';
+  String _ultimoPrefijoRfc = '';
   String _estadoCivil = 'SOLTERO';
   String _nacionalidad = 'MEX';
   List<Map<String, String>> _nacionalidades = const [
@@ -122,7 +125,58 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
   @override
   void initState() {
     super.initState();
+    _nombreCtrl.addListener(_recalcularCurpYRfc);
+    _segundoNombreCtrl.addListener(_recalcularCurpYRfc);
+    _apellidoPaternoCtrl.addListener(_recalcularCurpYRfc);
+    _apellidoMaternoCtrl.addListener(_recalcularCurpYRfc);
     _cargarCatalogos();
+  }
+
+  void _recalcularCurpYRfc() {
+    final res = CurpRfcCalculator.calcularPrefijos(
+      primerNombre: _nombreCtrl.text,
+      segundoNombre: _segundoNombreCtrl.text,
+      apellidoPaterno: _apellidoPaternoCtrl.text,
+      apellidoMaterno: _apellidoMaternoCtrl.text,
+      fechaNacimiento: _fechaNacimiento,
+      sexo: _sexo,
+    );
+
+    if (res.curpPrefijo.isNotEmpty) {
+      final actual = _curpCtrl.text.trim().toUpperCase();
+      if (actual.isEmpty ||
+          (_ultimoPrefijoCurp.isNotEmpty && actual.startsWith(_ultimoPrefijoCurp))) {
+        final sufijo = (_ultimoPrefijoCurp.isNotEmpty && actual.length > _ultimoPrefijoCurp.length)
+            ? actual.substring(_ultimoPrefijoCurp.length)
+            : '';
+        final combinado = '${res.curpPrefijo}$sufijo';
+        final nuevo = combinado.length > 18 ? combinado.substring(0, 18) : combinado;
+        _curpCtrl.value = TextEditingValue(
+          text: nuevo,
+          selection: TextSelection.collapsed(offset: nuevo.length),
+        );
+      }
+      _ultimoPrefijoCurp = res.curpPrefijo;
+    }
+
+    if (res.rfcPrefijo.isNotEmpty) {
+      final actual = _rfcCtrl.text.trim().toUpperCase();
+      if (actual.isEmpty ||
+          (_ultimoPrefijoRfc.isNotEmpty && actual.startsWith(_ultimoPrefijoRfc))) {
+        final sufijo = (_ultimoPrefijoRfc.isNotEmpty && actual.length > _ultimoPrefijoRfc.length)
+            ? actual.substring(_ultimoPrefijoRfc.length)
+            : '';
+        final combinado = '${res.rfcPrefijo}$sufijo';
+        final nuevo = combinado.length > 13 ? combinado.substring(0, 13) : combinado;
+        _rfcCtrl.value = TextEditingValue(
+          text: nuevo,
+          selection: TextSelection.collapsed(offset: nuevo.length),
+        );
+      }
+      _ultimoPrefijoRfc = res.rfcPrefijo;
+    }
+
+    if (mounted) setState(() {});
   }
 
   Future<void> _cargarCatalogos() async {
@@ -334,6 +388,7 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
         final d = seleccionada.day.toString().padLeft(2, '0');
         _fechaNacCtrl.text = '$y/$m/$d';
       });
+      _recalcularCurpYRfc();
       _step1Key.currentState?.validate();
     }
   }
@@ -645,34 +700,6 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
             ),
           ),
           const SizedBox(height: 14),
-          CustomTextField(
-            label: 'CURP (18 caracteres) *',
-            hint: 'Ej. PELJ990131HGTRPN09',
-            controller: _curpCtrl,
-            prefixIcon: Icons.fingerprint_rounded,
-            inputFormatters: [
-              LengthLimitingTextInputFormatter(18),
-              FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
-              TextInputFormatter.withFunction((oldVal, newVal) =>
-                  newVal.copyWith(text: newVal.text.toUpperCase())),
-            ],
-            validator: FormValidators.curp,
-          ),
-          const SizedBox(height: 14),
-          CustomTextField(
-            label: 'RFC (12 o 13 caracteres) *',
-            hint: 'Ej. PELJ990131AB1',
-            controller: _rfcCtrl,
-            prefixIcon: Icons.receipt_long_outlined,
-            inputFormatters: [
-              LengthLimitingTextInputFormatter(13),
-              FilteringTextInputFormatter.allow(RegExp(r'[A-Za-zÑñ&0-9]')),
-              TextInputFormatter.withFunction((oldVal, newVal) =>
-                  newVal.copyWith(text: newVal.text.toUpperCase())),
-            ],
-            validator: FormValidators.rfc,
-          ),
-          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
@@ -684,7 +711,10 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
                     DropdownMenuItem(value: 'H', child: Text('Hombre')),
                     DropdownMenuItem(value: 'Otros', child: Text('Otros')),
                   ],
-                  onChanged: (v) => setState(() => _sexo = v ?? 'M'),
+                  onChanged: (v) {
+                    setState(() => _sexo = v ?? 'M');
+                    _recalcularCurpYRfc();
+                  },
                 ),
               ),
               const SizedBox(width: 12),
@@ -704,6 +734,40 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 14),
+          CustomTextField(
+            label: 'CURP (18 caracteres) *',
+            hint: 'Ej. PELJ990131HGTRPN09',
+            helperText: _ultimoPrefijoCurp.isNotEmpty
+                ? 'Inicio calculado (${_ultimoPrefijoCurp.length}/18) — completa los últimos ${18 - _ultimoPrefijoCurp.length} dígitos'
+                : 'Se calcula el inicio automáticamente al llenar nombre, fecha y sexo',
+            controller: _curpCtrl,
+            prefixIcon: Icons.fingerprint_rounded,
+            inputFormatters: [
+              LengthLimitingTextInputFormatter(18),
+              FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
+              TextInputFormatter.withFunction((oldVal, newVal) =>
+                  newVal.copyWith(text: newVal.text.toUpperCase())),
+            ],
+            validator: FormValidators.curp,
+          ),
+          const SizedBox(height: 14),
+          CustomTextField(
+            label: 'RFC (12 o 13 caracteres) *',
+            hint: 'Ej. PELJ990131AB1',
+            helperText: _ultimoPrefijoRfc.isNotEmpty
+                ? 'Inicio calculado (${_ultimoPrefijoRfc.length}/13) — completa tu homoclave (3 dígitos)'
+                : 'Se calcula el inicio automáticamente con tus datos personales',
+            controller: _rfcCtrl,
+            prefixIcon: Icons.receipt_long_outlined,
+            inputFormatters: [
+              LengthLimitingTextInputFormatter(13),
+              FilteringTextInputFormatter.allow(RegExp(r'[A-Za-zÑñ&0-9]')),
+              TextInputFormatter.withFunction((oldVal, newVal) =>
+                  newVal.copyWith(text: newVal.text.toUpperCase())),
+            ],
+            validator: FormValidators.rfc,
           ),
           const SizedBox(height: 14),
           _buildDropdown<String>(

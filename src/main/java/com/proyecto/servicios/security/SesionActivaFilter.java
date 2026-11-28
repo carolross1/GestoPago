@@ -82,8 +82,17 @@ public class SesionActivaFilter extends OncePerRequestFilter {
         }
 
         Optional<Sesion> sesionOpt = sesionRepository.findByToken(token);
-        if (sesionOpt.isEmpty() || !Boolean.TRUE.equals(sesionOpt.get().getActiva())) {
-            rechazar(request, response, "Sesion invalida, inicia sesion nuevamente");
+        if (sesionOpt.isEmpty()) {
+            rechazar(request, response, "Tu sesión no es válida. Inicia sesión nuevamente.");
+            return;
+        }
+        if (!Boolean.TRUE.equals(sesionOpt.get().getActiva())) {
+            Long loginId = sesionOpt.get().getLoginId();
+            boolean reemplazadaEnOtroDispositivo = loginId != null && sesionRepository.existsByLoginIdAndActivaTrue(loginId);
+            String msg = reemplazadaEnOtroDispositivo
+                    ? "Tu sesión fue cerrada porque se inició sesión en otro dispositivo."
+                    : "Tu sesión ha expirado. Inicia sesión nuevamente.";
+            rechazar(request, response, msg);
             return;
         }
 

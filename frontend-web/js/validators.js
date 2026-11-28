@@ -230,5 +230,81 @@ const Validators = {
     el.addEventListener('input', run);
     el.addEventListener('blur', run);
     el._liveValidate = run;
+  },
+
+  // Calculador oficial (RENAPO / SAT) del prefijo base de CURP (11) y RFC (10)
+  calcularPrefijosCurpRfc({ primerNombre, segundoNombre, apellidoPaterno, apellidoMaterno, fechaNac, sexo }) {
+    const particulas = new Set([
+      'DA', 'DAS', 'DE', 'DEL', 'DER', 'DI', 'DIE', 'DD',
+      'EL', 'LA', 'LOS', 'LAS', 'LE', 'LES', 'MAC', 'MC',
+      'VAN', 'VON', 'Y'
+    ]);
+    const nombresComunes = new Set(['JOSE', 'MARIA', 'MA', 'J']);
+    const inconvenientes = new Set([
+      'BACA', 'BAKA', 'BUEI', 'BUEY', 'CACA', 'CACO', 'CAGA', 'CAGO',
+      'CAKA', 'CAKO', 'COGE', 'COGI', 'COJA', 'COJE', 'COJI', 'COJO',
+      'COLA', 'CULO', 'FALO', 'FETO', 'GETA', 'GUEI', 'GUEY', 'JETA',
+      'JOTO', 'KACA', 'KACO', 'KAGA', 'KAGO', 'KAKA', 'KAKO', 'KOGE',
+      'KOGI', 'KOJA', 'KOJE', 'KOJI', 'KOJO', 'KOLA', 'KULO', 'LILO',
+      'LOCA', 'LOCO', 'LOKA', 'LOKO', 'MAME', 'MAMO', 'MEAR', 'MEAS',
+      'MEON', 'MIAR', 'MION', 'MOCO', 'MOKO', 'MULA', 'MULO', 'NACA',
+      'NACO', 'PEDA', 'PEDO', 'PENE', 'PIPI', 'PITO', 'POPO', 'PUTA',
+      'PUTO', 'QULO', 'RATA', 'ROBA', 'ROBE', 'ROBO', 'RUIN', 'SENO',
+      'TETA', 'VACA', 'VAGA', 'VAGO', 'VAKA', 'VUEI', 'VUEY', 'WUEI',
+      'WUEY'
+    ]);
+
+    const normalizar = (txt) => (txt || '')
+      .trim()
+      .toUpperCase()
+      .replace(/Ñ/g, 'X')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^A-Z\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const palabraPrincipal = (txt, esNombre = false) => {
+      const n = normalizar(txt);
+      if (!n) return '';
+      const words = n.split(' ').filter(Boolean);
+      const filtradas = words.filter(w => !particulas.has(w));
+      const cand = filtradas.length ? filtradas : words;
+      if (esNombre && cand.length > 1 && nombresComunes.has(cand[0])) {
+        return cand[1];
+      }
+      return cand[0] || '';
+    };
+
+    const nom = palabraPrincipal(`${primerNombre || ''} ${segundoNombre || ''}`, true);
+    const pat = palabraPrincipal(apellidoPaterno || '');
+    const mat = palabraPrincipal(apellidoMaterno || '');
+    if (nom.length < 2 || pat.length < 2 || mat.length < 2 || !fechaNac || !/^\d{4}-\d{2}-\d{2}$/.test(fechaNac)) {
+      return { curpPrefijo: '', rfcPrefijo: '' };
+    }
+
+    let vocal = 'X';
+    for (let i = 1; i < pat.length; i++) {
+      if ('AEIOU'.includes(pat[i])) {
+        vocal = pat[i];
+        break;
+      }
+    }
+    const base4 = `${pat[0]}${vocal}${mat[0]}${nom[0]}`;
+    let letrasCurp = base4;
+    let letrasRfc = base4;
+    if (inconvenientes.has(base4)) {
+      letrasCurp = `${base4[0]}X${base4.slice(2)}`;
+      letrasRfc = `${base4.slice(0, 3)}X`;
+    }
+
+    const [yyyy, mm, dd] = fechaNac.split('-');
+    const fecha6 = `${yyyy.slice(-2)}${mm}${dd}`;
+    const sexoChar = (sexo === 'H' || sexo === 'M') ? sexo : '';
+
+    return {
+      curpPrefijo: `${letrasCurp}${fecha6}${sexoChar}`,
+      rfcPrefijo: `${letrasRfc}${fecha6}`
+    };
   }
 };

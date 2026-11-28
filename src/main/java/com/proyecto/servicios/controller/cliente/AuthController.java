@@ -15,8 +15,10 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -78,5 +80,21 @@ public class AuthController {
         boolean disponible = authService.correoDisponible(correo);
         String msg = disponible ? "Correo disponible" : "Este correo ya está registrado";
         return Respuestas.ok(msg, java.util.Map.of("disponible", disponible));
+    }
+
+    @Operation(summary = "Verificar si la sesión actual sigue activa (protegido por SesionActivaFilter)")
+    @GetMapping("/sesion")
+    public ResponseEntity<RespuestaApi<java.util.Map<String, Boolean>>> verificarSesion() {
+        return Respuestas.ok("Sesión activa", java.util.Map.of("activa", true));
+    }
+
+    @Operation(summary = "Cerrar explícitamente la sesión actual")
+    @PostMapping("/logout")
+    public ResponseEntity<RespuestaApi<Void>> logout(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            authService.cerrarSesion(authHeader.substring(7));
+        }
+        return Respuestas.ok("Sesión cerrada correctamente", null);
     }
 }

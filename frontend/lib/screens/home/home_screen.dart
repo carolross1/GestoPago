@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
@@ -22,15 +23,28 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _currentSection = 0; // 0: Inicio, 1: Servicios, 2: Historial, 3: Perfil
+  Timer? _sessionTimer;
+  AuthProvider? _authListenerRef;
+  bool _redirigiendoLogin = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final auth = Provider.of<AuthProvider>(context, listen: false);
+      _authListenerRef = auth;
+      auth.addListener(_onAuthStateChanged);
+
+      // Verificación periódica de sesión única omnicanal (cierra si inician en Web)
+      _sessionTimer = Timer.periodic(const Duration(seconds: 12), (_) {
+        if (!mounted || !auth.isAuthenticated) return;
+        auth.verificarSesionActiva();
+      });
+
       if (auth.currentCliente != null) {
         final cuentaProv = Provider.of<CuentaProvider>(context, listen: false);
         cuentaProv.cargarCuenta(auth.currentCliente!.id).then((_) {
@@ -43,6 +57,37 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       Provider.of<ProductosProvider>(context, listen: false).cargarProductos();
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      if (auth.isAuthenticated) {
+        auth.verificarSesionActiva();
+      }
+    }
+  }
+
+  void _onAuthStateChanged() {
+    if (!mounted || _redirigiendoLogin) return;
+    final auth = _authListenerRef;
+    if (auth != null && !auth.isAuthenticated) {
+      _redirigiendoLogin = true;
+      _sessionTimer?.cancel();
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _sessionTimer?.cancel();
+    _authListenerRef?.removeListener(_onAuthStateChanged);
+    super.dispose();
   }
 
   void _abrirSeccion(int seccion) {

@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -87,6 +88,15 @@ public class AuthServiceImpl implements AuthService {
                 .filter(l -> passwordEncoder.matches(request.getPassword(), l.getPasswordHash()))
                 .orElseThrow(() -> new CredencialesInvalidasException("La contrasena es incorrecta"));
 
+        // Sesión única omnicanal: cierra cualquier sesión previa activa (web o móvil) antes de abrir la nueva
+        List<Sesion> sesionesActivas = sesionRepository.findByLoginIdAndActivaTrue(login.getId());
+        if (sesionesActivas != null && !sesionesActivas.isEmpty()) {
+            sesionesActivas.forEach(s -> s.setActiva(false));
+            sesionRepository.saveAll(sesionesActivas);
+            log.info("Cerradas {} sesion(es) previa(s) del cliente id={} por nuevo inicio de sesion",
+                    sesionesActivas.size(), cliente.getId());
+        }
+
         String token = jwtUtil.generarToken(cliente.getId());
 
         Sesion sesion = new Sesion();
@@ -106,5 +116,19 @@ public class AuthServiceImpl implements AuthService {
             return false;
         }
         return !clienteRepository.existsByCorreo(CorreoUtil.normalizar(correo));
+    }
+
+    @Override
+    public void cerrarSesion(String token) {
+        if (token == null || token.isBlank()) {
+            return;
+        }
+        sesionRepository.findByToken(token).ifPresent(sesion -> {
+            if (Boolean.TRUE.equals(sesion.getActiva())) {
+                sesion.setActiva(false);
+                sesionRepository.save(sesion);
+                log.info("Sesion cerrada explicitamente por el usuario (loginId={})", sesion.getLoginId());
+            }
+        });
     }
 }

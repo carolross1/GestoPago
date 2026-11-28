@@ -14,6 +14,8 @@ class ApiConstants {
   static const String login = '/auth/login';
   static const String registroPortal = '/auth/registro';
   static const String verificarCorreo = '/auth/verificar-correo';
+  static const String verificarSesion = '/auth/sesion';
+  static const String logout = '/auth/logout';
 
   // Clientes
   static const String crearCliente = '/clientes';

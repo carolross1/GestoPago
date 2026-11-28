@@ -15,6 +15,10 @@ class ApiClient {
   String? _token;
   String? get token => _token;
 
+  /// Callback invocado cuando cualquier petición protegida recibe HTTP 401
+  /// (por ejemplo, sesión cerrada al iniciar sesión en otro dispositivo).
+  void Function(String mensaje)? onSessionExpired;
+
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     _token = prefs.getString('auth_token');
@@ -56,7 +60,7 @@ class ApiClient {
     final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
     try {
       final response = await http.get(uri, headers: _buildHeaders()).timeout(_timeout);
-      return _processResponse<T>(response, fromJson);
+      return _processResponse<T>(response, fromJson, endpoint);
     } catch (e) {
       final msg = _mensajeAmigable(e);
       return ApiResponse<T>(
@@ -82,7 +86,7 @@ class ApiClient {
             body: body != null ? jsonEncode(body) : null,
           )
           .timeout(_timeout);
-      return _processResponse<T>(response, fromJson);
+      return _processResponse<T>(response, fromJson, endpoint);
     } catch (e) {
       final msg = _mensajeAmigable(e);
       return ApiResponse<T>(
@@ -97,40 +101,55 @@ class ApiClient {
   ApiResponse<T> _processResponse<T>(
     http.Response response,
     T Function(dynamic)? fromJson,
+    String endpoint,
   ) {
+    ApiResponse<T> result;
     try {
       final decoded = jsonDecode(utf8.decode(response.bodyBytes));
       if (decoded is Map<String, dynamic>) {
         if (decoded.containsKey('exito') && decoded.containsKey('codigo')) {
-          return ApiResponse<T>.fromJson(decoded, fromJson);
+          result = ApiResponse<T>.fromJson(decoded, fromJson);
+        } else {
+          final bool isSuccess = response.statusCode >= 200 && response.statusCode < 300;
+          final dynamic rawData = decoded.containsKey('datos') ? decoded['datos'] : decoded;
+          result = ApiResponse<T>(
+            exito: isSuccess,
+            codigo: response.statusCode,
+            mensaje: decoded['mensaje']?.toString() ?? '',
+            datos: (rawData != null && fromJson != null)
+                ? fromJson(rawData)
+                : (rawData as T?),
+          );
         }
-
-        final bool isSuccess = response.statusCode >= 200 && response.statusCode < 300;
-        final dynamic rawData = decoded.containsKey('datos') ? decoded['datos'] : decoded;
-        return ApiResponse<T>(
-          exito: isSuccess,
+      } else {
+        result = ApiResponse<T>(
+          exito: response.statusCode >= 200 && response.statusCode < 300,
           codigo: response.statusCode,
-          mensaje: decoded['mensaje']?.toString() ?? '',
-          datos: (rawData != null && fromJson != null)
-              ? fromJson(rawData)
-              : (rawData as T?),
+          mensaje: 'Respuesta recibida',
         );
       }
-      return ApiResponse<T>(
-        exito: response.statusCode >= 200 && response.statusCode < 300,
-        codigo: response.statusCode,
-        mensaje: 'Respuesta recibida',
-      );
     } catch (_) {
       final msg = response.statusCode >= 500
           ? 'El servicio no está disponible en este momento. Intenta en unos segundos.'
           : 'No pudimos completar tu solicitud. Intenta de nuevo.';
-      return ApiResponse<T>(
+      result = ApiResponse<T>(
         exito: false,
         codigo: response.statusCode,
         mensaje: msg,
         errores: [msg],
       );
     }
+
+    if (response.statusCode == 401 &&
+        !endpoint.contains('/auth/login') &&
+        !endpoint.contains('/auth/logout') &&
+        _token != null &&
+        _token!.isNotEmpty) {
+      final msg = result.mensaje.isNotEmpty
+          ? result.mensaje
+          : 'Tu sesión fue cerrada porque se inició sesión en otro dispositivo.';
+      onSessionExpired?.call(msg);
+    }
+    return result;
   }
 }

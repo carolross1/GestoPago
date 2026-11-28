@@ -17,6 +17,8 @@ const app = {
   codigo2faSolicitadoWeb: false,
   adminCuentas: [],
   adminFiltro: '',
+  ultimoPrefijoCurpWeb: '',
+  ultimoPrefijoRfcWeb: '',
   tabuladoresSueldo: [
     { id: 'TAB_1', etiqueta: 'De $0 a $10,000 MXN', minimo: 0.01, maximo: 10000 },
     { id: 'TAB_2', etiqueta: 'De $10,001 a $25,000 MXN', minimo: 10001, maximo: 25000 },
@@ -46,6 +48,20 @@ const app = {
   init() {
     this.usuario = API.getUsuario();
     this.cuenta = API.getCuenta();
+    this.sessionMonitorTimer = null;
+
+    API.onSessionExpired = (mensaje) => this.manejarSesionCerradaRemota(mensaje);
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && API.getToken()) {
+        API.verificarSesion();
+      }
+    });
+    window.addEventListener('focus', () => {
+      if (API.getToken()) {
+        API.verificarSesion();
+      }
+    });
 
     this.poblarCatalogoProfesionesUI();
     this.cargarCatalogoProfesionesRemoto();
@@ -54,6 +70,7 @@ const app = {
     const token = API.getToken();
     if (token && this.usuario) {
       this.mostrarVistaApp();
+      this.iniciarMonitorSesion();
       this.cargarDatosUsuario();
     } else {
       this.mostrarVistaAuth();
@@ -62,6 +79,42 @@ const app = {
     if (window.lucide) {
       lucide.createIcons();
     }
+  },
+
+  iniciarMonitorSesion() {
+    this.detenerMonitorSesion();
+    this.sessionMonitorTimer = setInterval(() => {
+      if (API.getToken()) {
+        API.verificarSesion();
+      } else {
+        this.detenerMonitorSesion();
+      }
+    }, 12000);
+  },
+
+  detenerMonitorSesion() {
+    if (this.sessionMonitorTimer) {
+      clearInterval(this.sessionMonitorTimer);
+      this.sessionMonitorTimer = null;
+    }
+  },
+
+  manejarSesionCerradaRemota(mensaje) {
+    this.detenerMonitorSesion();
+    this.usuario = null;
+    this.cuenta = null;
+    this.productos = [];
+    this.historial = [];
+    const modalPago = document.getElementById('modal-pago');
+    const modalDetalle = document.getElementById('modal-detalle-historial');
+    if (modalPago) modalPago.classList.add('hidden');
+    if (modalDetalle) modalDetalle.classList.add('hidden');
+    this.mostrarVistaAuth();
+    this.setAuthTab('login');
+    this.mostrarAlertaAuth(
+      'error',
+      mensaje || 'Tu sesión fue cerrada porque se inició sesión en otro dispositivo.'
+    );
   },
 
   getTabuladorActual() {
@@ -250,6 +303,15 @@ const app = {
     Validators.bind('new-ap-paterno', v => Validators.apellido(v, 'tu apellido paterno'));
     Validators.bind('new-ap-materno', v => Validators.apellido(v, 'tu apellido materno'));
     Validators.bind('new-fecha-nac', v => Validators.fechaNacimiento(v));
+
+    // Recalcular prefijos de CURP y RFC en vivo al cambiar datos personales
+    ['new-nombre', 'new-segundo-nombre', 'new-ap-paterno', 'new-ap-materno', 'new-fecha-nac', 'new-sexo'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', () => this.recalcularCurpYRfcWeb());
+        el.addEventListener('change', () => this.recalcularCurpYRfcWeb());
+      }
+    });
     Validators.bind('new-curp', v => Validators.curp(v), {
       transform: v => v.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 18)
     });
@@ -366,6 +428,53 @@ const app = {
     });
   },
 
+  recalcularCurpYRfcWeb() {
+    if (typeof Validators === 'undefined' || !Validators.calcularPrefijosCurpRfc) return;
+    const { curpPrefijo, rfcPrefijo } = Validators.calcularPrefijosCurpRfc({
+      primerNombre: document.getElementById('new-nombre')?.value || '',
+      segundoNombre: document.getElementById('new-segundo-nombre')?.value || '',
+      apellidoPaterno: document.getElementById('new-ap-paterno')?.value || '',
+      apellidoMaterno: document.getElementById('new-ap-materno')?.value || '',
+      fechaNac: document.getElementById('new-fecha-nac')?.value || '',
+      sexo: document.getElementById('new-sexo')?.value || ''
+    });
+
+    const curpEl = document.getElementById('new-curp');
+    const rfcEl = document.getElementById('new-rfc');
+    const curpHint = document.getElementById('curp-auto-hint');
+    const rfcHint = document.getElementById('rfc-auto-hint');
+
+    if (curpPrefijo && curpEl) {
+      const actual = curpEl.value.trim().toUpperCase();
+      if (!actual || (this.ultimoPrefijoCurpWeb && actual.startsWith(this.ultimoPrefijoCurpWeb))) {
+        const sufijo = (this.ultimoPrefijoCurpWeb && actual.length > this.ultimoPrefijoCurpWeb.length)
+          ? actual.slice(this.ultimoPrefijoCurpWeb.length)
+          : '';
+        curpEl.value = `${curpPrefijo}${sufijo}`.slice(0, 18);
+        if (curpEl._liveValidate) curpEl._liveValidate();
+      }
+      this.ultimoPrefijoCurpWeb = curpPrefijo;
+      if (curpHint) {
+        curpHint.textContent = `✓ Inicio calculado (${curpPrefijo.length}/18) — completa los últimos ${18 - curpPrefijo.length} caracteres.`;
+      }
+    }
+
+    if (rfcPrefijo && rfcEl) {
+      const actual = rfcEl.value.trim().toUpperCase();
+      if (!actual || (this.ultimoPrefijoRfcWeb && actual.startsWith(this.ultimoPrefijoRfcWeb))) {
+        const sufijo = (this.ultimoPrefijoRfcWeb && actual.length > this.ultimoPrefijoRfcWeb.length)
+          ? actual.slice(this.ultimoPrefijoRfcWeb.length)
+          : '';
+        rfcEl.value = `${rfcPrefijo}${sufijo}`.slice(0, 13);
+        if (rfcEl._liveValidate) rfcEl._liveValidate();
+      }
+      this.ultimoPrefijoRfcWeb = rfcPrefijo;
+      if (rfcHint) {
+        rfcHint.textContent = `✓ Inicio calculado (${rfcPrefijo.length}/13) — agrega tu homoclave (3 dígitos).`;
+      }
+    }
+  },
+
   limpiarEstadoCorreoWeb() {
     clearTimeout(this.timerCorreoWeb);
     this.correoDisponibleWeb = null;
@@ -439,6 +548,7 @@ const app = {
     document.getElementById('view-auth').classList.add('hidden');
     document.getElementById('view-app').classList.remove('hidden');
     this.actualizarUIUsuario();
+    this.iniciarMonitorSesion();
   },
 
   togglePasswordVisibility(inputId, btn) {
@@ -717,7 +827,13 @@ const app = {
     if (window.lucide) lucide.createIcons();
   },
 
-  handleLogout() {
+  async handleLogout() {
+    this.detenerMonitorSesion();
+    try {
+      if (API.getToken()) {
+        await API.cerrarSesionRemota();
+      }
+    } catch (_) {}
     API.logout();
     this.usuario = null;
     this.cuenta = null;

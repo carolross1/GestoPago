@@ -42,7 +42,13 @@ public class SeguridadConfig {
     @Bean
     public FilterRegistrationBean<SesionActivaFilter> sesionActivaFilterRegistration(SesionActivaFilter filtro) {
         FilterRegistrationBean<SesionActivaFilter> registration = new FilterRegistrationBean<>(filtro);
-        registration.addUrlPatterns("/clientes/*", "/cuentas/*", "/catalogos/nacionalidades/sincronizar");
+        registration.addUrlPatterns(
+                "/clientes/*",
+                "/cuentas/*",
+                "/transacciones/*",
+                "/auth/sesion",
+                "/catalogos/nacionalidades/sincronizar"
+        );
         registration.setOrder(1);
         return registration;
     }

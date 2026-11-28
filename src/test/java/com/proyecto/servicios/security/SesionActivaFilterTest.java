@@ -134,4 +134,24 @@ class SesionActivaFilterTest {
         verify(chain).doFilter(request, response);
         verify(sesionRepository).save(sesion);
     }
+
+    @Test
+    void doFilterInternal_sesionCerradaPorOtroDispositivo_informaMotivo() throws ServletException, IOException {
+        StringWriter bodyWriter = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(bodyWriter));
+        when(request.getHeader("Authorization")).thenReturn("Bearer tokenViejo");
+        when(jwtUtil.esValido("tokenViejo")).thenReturn(true);
+
+        Sesion sesionCerrada = new Sesion();
+        sesionCerrada.setLoginId(10L);
+        sesionCerrada.setActiva(false);
+        when(sesionRepository.findByToken("tokenViejo")).thenReturn(Optional.of(sesionCerrada));
+        when(sesionRepository.existsByLoginIdAndActivaTrue(10L)).thenReturn(true);
+
+        filter.doFilterInternal(request, response, chain);
+
+        verify(response).setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        verify(chain, never()).doFilter(any(), any());
+        assertTrue(bodyWriter.toString().contains("otro dispositivo"));
+    }
 }

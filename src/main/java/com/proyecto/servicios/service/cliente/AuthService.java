@@ -11,4 +11,6 @@ public interface AuthService {
     LoginResponse login(LoginRequest request);
 
     boolean correoDisponible(String correo);
+
+    void cerrarSesion(String token);
 }
