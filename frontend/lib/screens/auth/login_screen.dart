@@ -7,6 +7,7 @@ import '../../providers/auth_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/gestopago_logo.dart';
+import '../admin/admin_abonos_screen.dart';
 import '../home/home_screen.dart';
 import 'crear_cuenta_screen.dart';
 import 'registro_portal_screen.dart';
@@ -447,6 +448,30 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                           ],
+                        ),
+                        const SizedBox(height: 12),
+                        TextButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const AdminAbonosScreen(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(
+                            Icons.admin_panel_settings_outlined,
+                            size: 15,
+                            color: AppColors.textMuted,
+                          ),
+                          label: const Text(
+                            'Acceso Administrativo',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
                         ),
                       ],
                     ),

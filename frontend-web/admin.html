@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GestoPago • Panel Administrativo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#F5F3FF',
+              100: '#EDE9FE',
+              200: '#DDD6FE',
+              500: '#7C3AED',
+              600: '#6D28D9',
+              700: '#5B21B6',
+              800: '#4C1D95',
+              900: '#2E1065'
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    .admin-bg {
+      background: radial-gradient(circle at 15% 20%, #3B1870 0%, #170B2E 50%, #0D061A 100%);
+    }
+    .btn-admin {
+      background: linear-gradient(135deg, #5B21B6 0%, #7C3AED 100%);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .btn-admin:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 24px -8px rgba(124, 58, 237, 0.55);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+
+  <!-- ======================================================= -->
+  <!-- VISTA 1: LOGIN ADMINISTRATIVO (ACCESO RESTRINGIDO)      -->
+  <!-- ======================================================= -->
+  <div id="admin-login-view" class="min-h-screen admin-bg flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white/95 backdrop-blur rounded-3xl shadow-2xl border border-white/20 p-8">
+      <div class="text-center mb-6">
+        <div class="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center shadow-lg mb-4" style="background: linear-gradient(135deg, #2E1065 0%, #5B21B6 60%, #7C3AED 100%);">
+          <svg viewBox="0 0 64 64" class="w-10 h-10" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="GestoPago Admin">
+            <path d="M46.5 21.5C43.2 16.5 37.9 13.5 31.8 13.5C21.6 13.5 13.5 21.6 13.5 31.8C13.5 42 21.6 50.2 31.8 50.2C41.5 50.2 49.4 42.8 50.1 33.2H32.5" stroke="#FFFFFF" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="48.5" cy="18" r="4.5" fill="#F59E0B"/>
+          </svg>
+        </div>
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-amber-100 text-amber-800 mb-2">
+          <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i>
+          Acceso Restringido
+        </span>
+        <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Panel Administrativo</h1>
+        <p class="text-xs text-slate-500 mt-1">GestoPago • Gestión de Cuentas y Abonos</p>
+      </div>
+
+      <div id="admin-login-alert" class="hidden mb-4 p-3 rounded-xl text-xs font-semibold"></div>
+
+      <form id="form-admin-login" onsubmit="adminApp.handleLogin(event)" class="space-y-4" novalidate>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1.5">Correo de Administrador</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+              <i data-lucide="mail" class="w-4 h-4"></i>
+            </span>
+            <input type="email" id="admin-login-email" required placeholder="admin@gestopago.com" class="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1.5">Contraseña Administrativa</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+              <i data-lucide="lock" class="w-4 h-4"></i>
+            </span>
+            <input type="password" id="admin-login-password" required placeholder="••••••••••••" class="w-full pl-10 pr-11 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+            <button type="button" onclick="adminApp.togglePassword('admin-login-password', this)" aria-label="Mostrar u ocultar contraseña" class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400 hover:text-brand-700">
+              <i data-lucide="eye" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" id="btn-admin-login" class="w-full py-3.5 px-4 btn-admin text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2">
+          <i data-lucide="shield-check" class="w-4 h-4"></i>
+          <span>Ingresar al Panel Admin</span>
+        </button>
+      </form>
+
+      <div class="mt-6 pt-5 border-t border-slate-100 text-center">
+        <a href="/" class="inline-flex items-center gap-1.5 text-xs font-bold text-brand-700 hover:underline">
+          <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+          Volver al Portal de Clientes
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================= -->
+  <!-- VISTA 2: CONSOLA DE ADMINISTRACIÓN                      -->
+  <!-- ======================================================= -->
+  <div id="admin-dashboard-view" class="hidden min-h-screen flex flex-col">
+    <!-- Topbar -->
+    <header class="text-white px-6 py-4 shadow-md" style="background: linear-gradient(90deg, #170B2E 0%, #2E1065 55%, #4C1D95 100%);">
+      <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center">
+            <i data-lucide="shield-check" class="w-5 h-5 text-amber-300"></i>
+          </div>
+          <div>
+            <h1 class="font-extrabold text-base tracking-tight">GestoPago <span class="text-amber-300">Admin</span></h1>
+            <p id="admin-header-email" class="text-[11px] text-violet-200">admin@gestopago.com</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <a href="/" class="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold transition-colors">
+            Portal Clientes
+          </a>
+          <button type="button" onclick="adminApp.logout()" class="px-3.5 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/35 border border-red-400/30 text-red-100 text-xs font-bold flex items-center gap-1.5 transition-colors">
+            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+            <span>Cerrar Sesión Admin</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
+      <!-- KPIs -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center gap-4">
+          <div class="w-11 h-11 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center">
+            <i data-lucide="users" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <span class="block text-[11px] font-bold uppercase text-slate-400">Cuentas Registradas</span>
+            <span id="kpi-total-cuentas" class="text-xl font-extrabold text-slate-900">0</span>
+          </div>
+        </div>
+        <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center gap-4">
+          <div class="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
+            <i data-lucide="banknote" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <span class="block text-[11px] font-bold uppercase text-slate-400">Saldo Total en Plataforma</span>
+            <span id="kpi-saldo-total" class="text-xl font-extrabold text-emerald-700">$0.00</span>
+          </div>
+        </div>
+        <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center gap-4">
+          <div class="w-11 h-11 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
+            <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <span class="block text-[11px] font-bold uppercase text-slate-400">Abonos en esta Sesión</span>
+            <span id="kpi-abonos-sesion" class="text-xl font-extrabold text-slate-900">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel Principal -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Formulario de Abono -->
+        <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-4 h-fit">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center">
+              <i data-lucide="wallet" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h2 class="text-sm font-extrabold text-slate-900">Abonar Saldo a Cliente</h2>
+              <p class="text-[11px] text-slate-500">Operación exclusiva de administrador</p>
+            </div>
+          </div>
+
+          <div id="admin-abono-alert" class="hidden p-3 rounded-xl text-xs font-semibold"></div>
+
+          <form id="form-admin-abono" onsubmit="adminApp.handleAbono(event)" class="space-y-4" novalidate>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1.5">Número de Cuenta (10 dígitos)</label>
+              <input type="text" inputmode="numeric" maxlength="10" id="admin-cuenta" required placeholder="Ej. 8209628377" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-mono font-bold focus:outline-none focus:ring-2 focus:ring-brand-500">
+              <p id="err-admin-cuenta" class="hidden text-[11px] font-semibold text-red-600 mt-1"></p>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1.5">Monto a Abonar ($ MXN)</label>
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400 font-bold">$</span>
+                <input type="text" inputmode="decimal" id="admin-monto" required placeholder="0.00" class="w-full pl-8 pr-4 py-3 rounded-xl border border-slate-200 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-brand-500">
+              </div>
+              <p id="err-admin-monto" class="hidden text-[11px] font-semibold text-red-600 mt-1"></p>
+            </div>
+
+            <div class="grid grid-cols-4 gap-2">
+              <button type="button" onclick="adminApp.setMonto(500)" class="py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-bold">+$500</button>
+              <button type="button" onclick="adminApp.setMonto(1000)" class="py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-bold">+$1,000</button>
+              <button type="button" onclick="adminApp.setMonto(5000)" class="py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-bold">+$5,000</button>
+              <button type="button" onclick="adminApp.setMonto(10000)" class="py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-bold">+$10,000</button>
+            </div>
+
+            <button type="submit" id="btn-admin-abonar" class="w-full py-3.5 px-4 btn-admin text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2">
+              <i data-lucide="plus-circle" class="w-4 h-4"></i>
+              <span>Aplicar Abono</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- Tabla de Clientes y Cuentas -->
+        <div class="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
+          <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 class="text-sm font-extrabold text-slate-900">Directorio de Clientes y Cuentas</h2>
+              <p class="text-[11px] text-slate-500">Haz clic en cualquier fila para seleccionar la cuenta</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                  <i data-lucide="search" class="w-3.5 h-3.5"></i>
+                </span>
+                <input type="text" id="admin-search" oninput="adminApp.filtrar(this.value)" placeholder="Nombre, correo o cuenta..." class="pl-8 pr-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 w-56">
+              </div>
+              <button type="button" onclick="adminApp.cargarCuentas()" class="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600" title="Actualizar">
+                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500 font-bold border-b border-slate-100">
+                <tr>
+                  <th class="py-3 px-5">Cliente</th>
+                  <th class="py-3 px-4">No. Cuenta</th>
+                  <th class="py-3 px-4 text-right">Saldo Actual</th>
+                  <th class="py-3 px-5 text-center">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="admin-cuentas-tbody" class="divide-y divide-slate-100">
+                <tr><td colspan="4" class="py-10 text-center text-slate-400">Cargando clientes...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/admin.js"></script>
+</body>
+</html>

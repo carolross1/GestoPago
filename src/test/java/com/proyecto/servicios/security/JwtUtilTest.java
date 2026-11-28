@@ -32,5 +32,16 @@ class JwtUtilTest {
     @Test
     void tokenInvalidoRetornaFalse() {
         assertFalse(jwtUtil.esValido("token.invalido.falso"));
+        assertFalse(jwtUtil.esTokenAdmin("token.invalido.falso"));
+    }
+
+    @Test
+    void tokenAdmin_esDiferenteATokenCliente() {
+        String tokenCliente = jwtUtil.generarToken(42L);
+        String tokenAdmin = jwtUtil.generarTokenAdmin("admin@gestopago.com");
+
+        assertFalse(jwtUtil.esTokenAdmin(tokenCliente));
+        assertTrue(jwtUtil.esTokenAdmin(tokenAdmin));
+        assertEquals("admin@gestopago.com", jwtUtil.obtenerCorreoAdmin(tokenAdmin));
     }
 }

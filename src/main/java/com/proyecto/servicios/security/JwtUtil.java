@@ -53,6 +53,45 @@ public class JwtUtil {
         }
     }
 
+    public String generarTokenAdmin(String correoAdmin) {
+        Date ahora = new Date();
+        Date expira = new Date(ahora.getTime() + expiracionMs);
+
+        return Jwts.builder()
+                .subject("ADMIN:" + correoAdmin.trim().toLowerCase())
+                .claim("rol", "ADMIN")
+                .issuedAt(ahora)
+                .expiration(expira)
+                .signWith(claveSecreta())
+                .compact();
+    }
+
+    public boolean esTokenAdmin(String token) {
+        try {
+            Claims claims = Jwts.parser()
+                    .verifyWith(claveSecreta())
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+            return "ADMIN".equals(claims.get("rol", String.class));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public String obtenerCorreoAdmin(String token) {
+        Claims claims = Jwts.parser()
+                .verifyWith(claveSecreta())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+        String sub = claims.getSubject();
+        if (sub != null && sub.startsWith("ADMIN:")) {
+            return sub.substring("ADMIN:".length());
+        }
+        return sub;
+    }
+
     public long getExpiracionMs() {
         return expiracionMs;
     }

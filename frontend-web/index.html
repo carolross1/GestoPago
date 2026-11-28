@@ -359,10 +359,6 @@
             <i data-lucide="history" class="w-4 h-4"></i>
             <span>Historial de Pagos</span>
           </button>
-          <button onclick="app.setAppSection('admin')" id="nav-admin" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-slate-300 hover:bg-slate-800 hover:text-white">
-            <i data-lucide="shield-plus" class="w-4 h-4"></i>
-            <span>Módulo Admin (Abonos)</span>
-          </button>
         </nav>
       </div>
 
@@ -556,90 +552,6 @@
                   <!-- Render dinámico -->
                 </tbody>
               </table>
-            </div>
-          </div>
-        </section>
-
-        <!-- SECCIÓN 4: MÓDULO ADMIN (ABONOS A CLIENTES) -->
-        <section id="section-admin" class="hidden space-y-6">
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Formulario de Abono -->
-            <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-4">
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center">
-                  <i data-lucide="wallet" class="w-5 h-5"></i>
-                </div>
-                <div>
-                  <h3 class="text-sm font-extrabold text-slate-900">Abonar Saldo a Cuenta</h3>
-                  <p class="text-[11px] text-slate-500">Acreditación inmediata al cliente</p>
-                </div>
-              </div>
-
-              <div id="admin-abono-alert" class="hidden p-3 rounded-xl text-xs font-semibold"></div>
-
-              <form id="form-admin-abono" onsubmit="app.handleAbonoAdmin(event)" class="space-y-4" novalidate>
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1.5">Número de Cuenta (10 dígitos)</label>
-                  <input type="text" inputmode="numeric" maxlength="10" id="admin-cuenta" required placeholder="Ej. 8209628377" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-mono font-bold focus:outline-none focus:ring-2 focus:ring-brand-500">
-                </div>
-
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1.5">Monto a Abonar ($ MXN)</label>
-                  <div class="relative">
-                    <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 font-bold">$</span>
-                    <input type="text" inputmode="decimal" id="admin-monto" required placeholder="0.00" class="w-full pl-8 pr-4 py-3 rounded-xl border border-slate-200 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-brand-500">
-                  </div>
-                </div>
-
-                <div class="grid grid-cols-4 gap-2">
-                  <button type="button" onclick="app.setMontoAdmin(500)" class="py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-bold transition-colors">+$500</button>
-                  <button type="button" onclick="app.setMontoAdmin(1000)" class="py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-bold transition-colors">+$1,000</button>
-                  <button type="button" onclick="app.setMontoAdmin(5000)" class="py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-bold transition-colors">+$5,000</button>
-                  <button type="button" onclick="app.setMontoAdmin(10000)" class="py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-bold transition-colors">+$10,000</button>
-                </div>
-
-                <button type="submit" id="btn-admin-abonar" class="w-full py-3.5 px-4 btn-glow text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2">
-                  <i data-lucide="plus-circle" class="w-4 h-4"></i>
-                  <span>Aplicar Abono</span>
-                </button>
-              </form>
-            </div>
-
-            <!-- Tabla de Clientes y Cuentas -->
-            <div class="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
-              <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h3 class="text-sm font-extrabold text-slate-900">Clientes y Cuentas Registradas</h3>
-                  <p class="text-[11px] text-slate-500">Haz clic en cualquier cliente para seleccionarlo</p>
-                </div>
-                <div class="flex items-center gap-2">
-                  <div class="relative">
-                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
-                      <i data-lucide="search" class="w-3.5 h-3.5"></i>
-                    </span>
-                    <input type="text" id="admin-search" oninput="app.filtrarCuentasAdmin(this.value)" placeholder="Nombre, correo o cuenta..." class="pl-8 pr-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 w-56">
-                  </div>
-                  <button type="button" onclick="app.cargarCuentasAdmin()" class="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600" title="Actualizar lista">
-                    <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-                  </button>
-                </div>
-              </div>
-
-              <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs">
-                  <thead class="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500 font-bold border-b border-slate-100">
-                    <tr>
-                      <th class="py-3 px-5">Cliente</th>
-                      <th class="py-3 px-4">No. Cuenta</th>
-                      <th class="py-3 px-4 text-right">Saldo Actual</th>
-                      <th class="py-3 px-5 text-center">Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody id="admin-cuentas-tbody" class="divide-y divide-slate-100">
-                    <tr><td colspan="4" class="py-8 text-center text-slate-400">Cargando cuentas...</td></tr>
-                  </tbody>
-                </table>
-              </div>
             </div>
           </div>
         </section>

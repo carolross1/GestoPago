@@ -1,5 +1,6 @@
 package com.proyecto.servicios.config;
 
+import com.proyecto.servicios.security.AdminAuthFilter;
 import com.proyecto.servicios.security.SesionActivaFilter;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -11,6 +12,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.List;
@@ -54,6 +56,14 @@ public class SeguridadConfig {
     }
 
     @Bean
+    public FilterRegistrationBean<AdminAuthFilter> adminAuthFilterRegistration(AdminAuthFilter filtro) {
+        FilterRegistrationBean<AdminAuthFilter> registration = new FilterRegistrationBean<>(filtro);
+        registration.addUrlPatterns("/api/admin/*");
+        registration.setOrder(1);
+        return registration;
+    }
+
+    @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
@@ -68,6 +78,12 @@ public class SeguridadConfig {
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                         .allowedHeaders("*")
                         .allowCredentials(true);
+            }
+
+            @Override
+            public void addViewControllers(ViewControllerRegistry registry) {
+                registry.addViewController("/admin").setViewName("forward:/admin.html");
+                registry.addViewController("/admin/").setViewName("forward:/admin.html");
             }
         };
     }

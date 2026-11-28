@@ -38,4 +38,9 @@ class ApiConstants {
   static const String pagarTransaccion = '/transacciones/pago';
   static const String validarReferencia = '/transacciones/referencia/validar';
   static const String historialTransacciones = '/transacciones/historial';
+
+  // Panel Administrativo (acceso restringido con JWT ADMIN)
+  static const String adminLogin = '/api/admin/login';
+  static const String adminCuentas = '/api/admin/cuentas';
+  static const String adminAbono = '/api/admin/abono';
 }
