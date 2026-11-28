@@ -26,7 +26,7 @@ class ComprobanteScreen extends StatelessWidget {
 
   Widget _buildDatoRow(String etiqueta, String valor, {bool isBold = false, Color? color}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.symmetric(vertical: 7.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -34,7 +34,7 @@ class ComprobanteScreen extends StatelessWidget {
             child: Text(
               etiqueta,
               style: const TextStyle(
-                fontSize: 13,
+                fontSize: 12.5,
                 color: AppColors.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
@@ -46,7 +46,7 @@ class ComprobanteScreen extends StatelessWidget {
               valor,
               textAlign: TextAlign.end,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 13.5,
                 fontWeight: isBold ? FontWeight.w700 : FontWeight.w600,
                 color: color ?? AppColors.textPrimary,
               ),
@@ -59,10 +59,18 @@ class ComprobanteScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool aprobada = pago.aprobada;
+    final Color statusColor = aprobada ? AppColors.success : AppColors.error;
+    final Color statusBg = aprobada ? AppColors.successBg : AppColors.errorBg;
+    final String upcMostrar = pago.upc.isNotEmpty
+        ? pago.upc
+        : (pago.numAutorizacion.isNotEmpty ? pago.numAutorizacion : pago.idTx);
+    final int? servId = pago.idServicio ?? idServicio;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Comprobante Digital'),
+        title: Text(aprobada ? 'Ticket Digital' : 'Ticket de Operación Rechazada'),
         automaticallyImplyLeading: false,
       ),
       body: SafeArea(
@@ -70,13 +78,15 @@ class ComprobanteScreen extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 20.0),
           child: Column(
             children: [
-              // Card Principal del Comprobante
+              // Card Principal del Comprobante / Ticket
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   color: AppColors.surface,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(
+                    color: aprobada ? AppColors.border : AppColors.error.withValues(alpha: 0.35),
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.04),
@@ -87,44 +97,74 @@ class ComprobanteScreen extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    // Icono de éxito
+                    // Icono de estado
                     Container(
                       width: 64,
                       height: 64,
-                      decoration: const BoxDecoration(
-                        color: AppColors.successBg,
+                      decoration: BoxDecoration(
+                        color: statusBg,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
-                        Icons.check_circle_rounded,
-                        color: AppColors.success,
+                      child: Icon(
+                        aprobada ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                        color: statusColor,
                         size: 38,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      '¡Pago Realizado con Éxito!',
+                    const SizedBox(height: 14),
+                    Text(
+                      aprobada ? '¡Pago Realizado con Éxito!' : 'OPERACIÓN RECHAZADA',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
+                        color: aprobada ? AppColors.textPrimary : AppColors.error,
                         letterSpacing: -0.4,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    if (!aprobada) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: AppColors.errorBg,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${pago.mensajeProveedor} (Código ${pago.codigoProveedor})',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.error,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
                     Text(
                       CurrencyFormatter.format(pago.monto),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w900,
-                        color: AppColors.accent,
+                        color: aprobada ? AppColors.accent : AppColors.error,
                         letterSpacing: -0.5,
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    if (!aprobada) ...[
+                      const SizedBox(height: 4),
+                      const Text(
+                        'No se descontó ningún cargo de tu saldo.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
 
-                    // Línea divisoria decorativa con dientes estilo ticket
+                    // Línea divisoria estilo ticket
                     Row(
                       children: List.generate(
                         26,
@@ -136,44 +176,59 @@ class ComprobanteScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 18),
 
-                    // Logotipo del Servicio y Datos de Transacción
+                    // Logotipo del Servicio
                     Center(
                       child: Padding(
-                        padding: const EdgeInsets.only(bottom: 12.0),
+                        padding: const EdgeInsets.only(bottom: 10.0),
                         child: BrandLogoWidget(
                           servicio: servicioNombre,
-                          idServicio: idServicio,
-                          size: 56,
+                          idServicio: servId,
+                          size: 54,
                           borderRadius: 16,
                         ),
                       ),
                     ),
-                    _buildDatoRow('Estado', 'EXITOSA', isBold: true, color: AppColors.success),
+
+                    _buildDatoRow(
+                      'Estado',
+                      aprobada ? 'EXITOSA' : 'OPERACIÓN RECHAZADA (${pago.codigoProveedor})',
+                      isBold: true,
+                      color: statusColor,
+                    ),
+                    _buildDatoRow('Mensaje', pago.mensajeProveedor, isBold: !aprobada),
                     _buildDatoRow('Servicio', servicioNombre, isBold: true),
                     _buildDatoRow('Producto', productoNombre),
+                    _buildDatoRow('ID Servicio', servId?.toString() ?? '-'),
+                    _buildDatoRow('ID Producto', pago.idProducto?.toString() ?? '-'),
+                    _buildDatoRow('ID Dispositivo', pago.idDispositivo, isBold: true),
                     _buildDatoRow(
                       pago.tipoDestino == 'TELEFONO' ? 'Teléfono destino' : 'Referencia',
                       pago.destino,
                     ),
                     _buildDatoRow('Cuenta emisora', _enmascararCuenta(pago.numeroCuenta)),
-                    _buildDatoRow('ID Transacción (GestoPago)', pago.idTx),
-                    _buildDatoRow('No. de Autorización', pago.numAutorizacion, isBold: true),
                     _buildDatoRow('Fecha y Hora', '${pago.fecha ?? ""} ${pago.hora ?? ""}'),
-                    const Divider(height: 24),
+                    if (pago.horaLocal.isNotEmpty)
+                      _buildDatoRow('Hora local (GestoPago)', pago.horaLocal),
+                    if (aprobada) ...[
+                      _buildDatoRow('ID Transacción (GestoPago)', pago.idTx),
+                      _buildDatoRow('No. de Autorización', pago.numAutorizacion, isBold: true),
+                    ],
+                    const Divider(height: 22),
 
                     _buildDatoRow(
-                      'Saldo restante en cuenta',
+                      aprobada ? 'Saldo restante en cuenta' : 'Saldo disponible (sin cargo)',
                       CurrencyFormatter.format(pago.saldoRestante),
                       isBold: true,
                       color: AppColors.success,
                     ),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
 
-                    // Folio UPC
+                    // Folio UPC 10 dígitos
                     Container(
+                      width: double.infinity,
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       decoration: BoxDecoration(
                         color: AppColors.surfaceElevated,
@@ -183,7 +238,7 @@ class ComprobanteScreen extends StatelessWidget {
                       child: Column(
                         children: [
                           const Text(
-                            'FOLIO DIGITAL UPC',
+                            'FOLIO UPC (10 DÍGITOS)',
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
@@ -193,15 +248,54 @@ class ComprobanteScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            pago.numAutorizacion.isNotEmpty
-                                ? 'UPC-${pago.numAutorizacion}'
-                                : 'UPC-TX-${pago.idTx}',
+                            upcMostrar,
                             style: const TextStyle(
-                              fontSize: 15,
+                              fontSize: 18,
                               fontFamily: 'monospace',
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 2,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 2.5,
                               color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // Leyenda del producto para aclaraciones / reclamaciones
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: aprobada ? const Color(0xFFF5F3FF) : AppColors.errorBg,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: aprobada
+                              ? const Color(0xFFDDD6FE)
+                              : AppColors.error.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            aprobada
+                                ? 'Leyenda del producto / Aclaraciones'
+                                : 'Leyenda del producto para reclamación',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: aprobada ? AppColors.primary : AppColors.error,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            pago.leyenda,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              height: 1.4,
+                              color: aprobada ? AppColors.textSecondary : const Color(0xFF991B1B),
                             ),
                           ),
                         ],
@@ -211,39 +305,40 @@ class ComprobanteScreen extends StatelessWidget {
                 ),
               ),
 
-              const SizedBox(height: 28),
+              const SizedBox(height: 24),
 
-              // Botones de acción
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Comprobante enviado a tu correo electrónico registrado.'),
-                        backgroundColor: AppColors.success,
-                        behavior: SnackBarBehavior.floating,
+              // Aviso de envío de correo automático
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.mark_email_read_outlined, color: AppColors.accent, size: 18),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Se envió una copia automática de este ticket a tu correo electrónico registrado.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    );
-                  },
-                  icon: const Icon(Icons.share_outlined, size: 20),
-                  label: const Text('Enviar a mi Correo'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
                     ),
-                  ),
+                  ],
                 ),
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
 
               SizedBox(
                 width: double.infinity,
                 height: 52,
-                child: OutlinedButton(
+                child: ElevatedButton(
                   onPressed: () {
                     Navigator.pushAndRemoveUntil(
                       context,
@@ -251,7 +346,8 @@ class ComprobanteScreen extends StatelessWidget {
                       (route) => false,
                     );
                   },
-                  style: OutlinedButton.styleFrom(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -266,4 +362,3 @@ class ComprobanteScreen extends StatelessWidget {
     );
   }
 }
-

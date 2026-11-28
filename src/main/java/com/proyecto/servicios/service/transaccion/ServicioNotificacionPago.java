@@ -76,7 +76,10 @@ public class ServicioNotificacionPago {
             return;
         }
 
-        String asunto = "Comprobante de compra - " + datos.getServicio() + " [UPC: " + datos.getUpc() + "]";
+        boolean aprobada = datos.isAprobada();
+        String asunto = aprobada
+                ? "Comprobante de compra - " + datos.getServicio() + " [UPC: " + datos.getUpc() + "]"
+                : "OPERACIÓN RECHAZADA - " + datos.getServicio() + " [UPC: " + datos.getUpc() + "]";
         String cuerpoHtml = construirCuerpoHtml(datos);
 
         if (EnviadorCorreoHttp.enviarPorWebhook(mailWebhookUrl, mailWebhookSecret, datos.getCorreoDestino(), asunto, cuerpoHtml)) {
@@ -112,53 +115,95 @@ public class ServicioNotificacionPago {
     }
 
     private String construirCuerpoHtml(ComprobantePagoCorreo datos) {
+        boolean aprobada = datos.isAprobada();
         String nombre = HtmlUtils.htmlEscape(datos.getNombreCliente() != null ? datos.getNombreCliente() : "Cliente");
         String cuentaRaw = datos.getNumeroCuenta() != null ? datos.getNumeroCuenta() : "";
         String cuentaEnmascarada = cuentaRaw.length() > 4
                 ? "•••• " + cuentaRaw.substring(cuentaRaw.length() - 4)
                 : cuentaRaw;
         String cuenta = HtmlUtils.htmlEscape(cuentaEnmascarada);
-        String servicio = HtmlUtils.htmlEscape(datos.getServicio());
-        String producto = HtmlUtils.htmlEscape(datos.getProducto());
-        String destino = HtmlUtils.htmlEscape(datos.getDestino());
-        String idTx = HtmlUtils.htmlEscape(datos.getIdTx());
-        String autorizacion = HtmlUtils.htmlEscape(datos.getNumAutorizacion());
-        String upc = HtmlUtils.htmlEscape(datos.getUpc());
+        String servicio = HtmlUtils.htmlEscape(datos.getServicio() != null ? datos.getServicio() : "Servicio");
+        String producto = HtmlUtils.htmlEscape(datos.getProducto() != null ? datos.getProducto() : "Producto");
+        String destino = HtmlUtils.htmlEscape(datos.getDestino() != null ? datos.getDestino() : "-");
+        String idTx = HtmlUtils.htmlEscape(datos.getIdTx() != null ? datos.getIdTx() : "-");
+        String autorizacion = HtmlUtils.htmlEscape(datos.getNumAutorizacion() != null ? datos.getNumAutorizacion() : "-");
+        String upc = HtmlUtils.htmlEscape(datos.getUpc() != null ? datos.getUpc() : "-");
+        String idServicio = datos.getIdServicio() != null ? String.valueOf(datos.getIdServicio()) : "-";
+        String idProducto = datos.getIdProducto() != null ? String.valueOf(datos.getIdProducto()) : "-";
+        String idDispositivo = HtmlUtils.htmlEscape(
+                datos.getIdDispositivo() != null && !datos.getIdDispositivo().isBlank()
+                        ? datos.getIdDispositivo() : "GPS83-TPV-17");
+        String horaLocal = HtmlUtils.htmlEscape(
+                datos.getHoraLocal() != null && !datos.getHoraLocal().isBlank()
+                        ? datos.getHoraLocal()
+                        : (datos.getFechaHora() != null
+                                ? datos.getFechaHora().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
+                                : ""));
+        String leyenda = HtmlUtils.htmlEscape(
+                datos.getLeyenda() != null && !datos.getLeyenda().isBlank()
+                        ? datos.getLeyenda()
+                        : "Conserva este comprobante y tu folio UPC de 10 dígitos para cualquier aclaración o reclamación.");
+        String codigoResp = HtmlUtils.htmlEscape(
+                datos.getCodigoRespuesta() != null ? datos.getCodigoRespuesta() : (aprobada ? "01" : "-1"));
+        String mensajeOp = HtmlUtils.htmlEscape(
+                datos.getMensajeOperacion() != null && !datos.getMensajeOperacion().isBlank()
+                        ? datos.getMensajeOperacion()
+                        : (aprobada ? "Operación realizada con éxito" : "Transacción no válida"));
         String urlLogo = datos.getUrlLogo();
 
         String fecha = datos.getFechaHora() != null ? datos.getFechaHora().format(FORMATO_FECHA) : "";
         String hora = datos.getFechaHora() != null ? datos.getFechaHora().format(FORMATO_HORA) : "";
 
+        String headerBg = aprobada
+                ? "linear-gradient(135deg, #2E1065 0%, #5B21B6 55%, #7C3AED 100%)"
+                : "linear-gradient(135deg, #7F1D1D 0%, #B91C1C 55%, #DC2626 100%)";
+        String titulo = aprobada ? "Comprobante de Pago" : "OPERACIÓN RECHAZADA";
+        String subtitulo = aprobada
+                ? "GestoPago &bull; Transacción exitosa"
+                : "GestoPago &bull; Código " + codigoResp + " &bull; " + mensajeOp;
+        String intro = aprobada
+                ? "Tu pago ha sido procesado correctamente. A continuación te presentamos el ticket oficial de la operación:"
+                : "<strong style='color:#B91C1C;'>Transacción no válida (Código " + codigoResp + ").</strong> GestoPago no pudo procesar esta operación y <strong>no se realizó ningún cargo a tu saldo</strong>. Conserva este ticket con tu UPC, fecha y leyenda del producto para cualquier reclamación:";
+        String cajaBg = aprobada ? "#F5F3FF" : "#FEF2F2";
+        String cajaBorder = aprobada ? "#DDD6FE" : "#FECACA";
+        String cajaColor = aprobada ? "#4C1D95" : "#991B1B";
+
         return "<!DOCTYPE html>"
                 + "<html lang='es'>"
                 + "<head><meta charset='UTF-8'></head>"
                 + "<body style='font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6; margin: 0; padding: 24px; color: #1f2937;'>"
-                + "  <table width='100%' cellpadding='0' cellspacing='0' style='max-width: 560px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08);'>"
+                + "  <table width='100%' cellpadding='0' cellspacing='0' style='max-width: 580px; margin: 0 auto; background-color: #ffffff; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.08);'>"
                 + "    <tr>"
-                + "      <td style='background: linear-gradient(135deg, #2E1065 0%, #5B21B6 55%, #7C3AED 100%); padding: 28px 24px; text-align: center; color: #ffffff;'>"
+                + "      <td style='background: " + headerBg + "; padding: 28px 24px; text-align: center; color: #ffffff;'>"
                 + "        <img src='" + urlLogo + "' alt='" + servicio + "' width='64' height='64' style='display: block; margin: 0 auto 12px auto; border-radius: 12px; background: #ffffff; object-fit: contain; padding: 6px; box-sizing: border-box;' />"
-                + "        <h1 style='margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0.5px;'>Comprobante de Pago</h1>"
-                + "        <p style='margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;'>GestoPago &bull; Transacción exitosa</p>"
+                + "        <h1 style='margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.5px;'>" + titulo + "</h1>"
+                + "        <p style='margin: 6px 0 0 0; font-size: 13px; opacity: 0.92;'>" + subtitulo + "</p>"
                 + "      </td>"
                 + "    </tr>"
                 + "    <tr>"
                 + "      <td style='padding: 24px;'>"
-                + "        <p style='margin: 0 0 16px 0; font-size: 15px;'>Hola, <strong>" + nombre + "</strong>:</p>"
-                + "        <p style='margin: 0 0 20px 0; font-size: 14px; line-height: 1.5; color: #4b5563;'>Tu pago ha sido procesado correctamente. A continuación te presentamos el resumen oficial de la transacción:</p>"
-                + "        <table width='100%' cellpadding='0' cellspacing='0' style='border-collapse: collapse; margin-bottom: 20px; font-size: 13px;'>"
-                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280;'>Servicio:</td><td style='padding: 10px 0; font-weight: 600; text-align: right;'>" + servicio + "</td></tr>"
-                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280;'>Producto:</td><td style='padding: 10px 0; text-align: right;'>" + producto + "</td></tr>"
-                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280;'>Destino / Referencia:</td><td style='padding: 10px 0; font-weight: 600; text-align: right;'>" + destino + "</td></tr>"
-                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280;'>Cuenta origen:</td><td style='padding: 10px 0; text-align: right;'>" + cuenta + "</td></tr>"
-                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280;'>Folio UPC:</td><td style='padding: 10px 0; font-family: monospace; font-size: 14px; font-weight: 700; color: #5B21B6; text-align: right;'>" + upc + "</td></tr>"
-                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280;'>No. de autorización:</td><td style='padding: 10px 0; text-align: right;'>" + autorizacion + "</td></tr>"
-                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280;'>ID Transacción GestoPago:</td><td style='padding: 10px 0; text-align: right;'>" + idTx + "</td></tr>"
-                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280;'>Fecha y hora:</td><td style='padding: 10px 0; text-align: right;'>" + fecha + " " + hora + "</td></tr>"
-                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 10px 0; color: #6b7280; font-weight: 600;'>Monto pagado:</td><td style='padding: 10px 0; font-size: 16px; font-weight: 700; color: #047857; text-align: right;'>$" + datos.getMonto() + " MXN</td></tr>"
-                + "          <tr><td style='padding: 10px 0; color: #6b7280;'>Saldo restante:</td><td style='padding: 10px 0; font-weight: 600; text-align: right;'>$" + datos.getSaldoRestante() + " MXN</td></tr>"
+                + "        <p style='margin: 0 0 12px 0; font-size: 15px;'>Hola, <strong>" + nombre + "</strong>:</p>"
+                + "        <p style='margin: 0 0 18px 0; font-size: 13.5px; line-height: 1.5; color: #4b5563;'>" + intro + "</p>"
+                + "        <table width='100%' cellpadding='0' cellspacing='0' style='border-collapse: collapse; margin-bottom: 18px; font-size: 13px;'>"
+                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>Estado:</td><td style='padding: 9px 0; font-weight: 700; color: " + (aprobada ? "#047857" : "#DC2626") + "; text-align: right;'>" + (aprobada ? "EXITOSA" : "OPERACIÓN RECHAZADA (" + codigoResp + ")") + "</td></tr>"
+                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>Mensaje:</td><td style='padding: 9px 0; font-weight: 600; text-align: right;'>" + mensajeOp + "</td></tr>"
+                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>UPC (10 dígitos):</td><td style='padding: 9px 0; font-family: monospace; font-size: 14px; font-weight: 800; color: #5B21B6; text-align: right;'>" + upc + "</td></tr>"
+                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>Fecha y hora:</td><td style='padding: 9px 0; text-align: right;'>" + fecha + " " + hora + "</td></tr>"
+                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>Hora local (GestoPago):</td><td style='padding: 9px 0; font-family: monospace; text-align: right;'>" + horaLocal + "</td></tr>"
+                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>Servicio / ID Servicio:</td><td style='padding: 9px 0; font-weight: 600; text-align: right;'>" + servicio + " (ID: " + idServicio + ")</td></tr>"
+                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>Producto / ID Producto:</td><td style='padding: 9px 0; text-align: right;'>" + producto + " (ID: " + idProducto + ")</td></tr>"
+                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>ID de Dispositivo:</td><td style='padding: 9px 0; font-family: monospace; font-weight: 600; text-align: right;'>" + idDispositivo + "</td></tr>"
+                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>Destino / Referencia:</td><td style='padding: 9px 0; font-weight: 600; text-align: right;'>" + destino + "</td></tr>"
+                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>Cuenta origen:</td><td style='padding: 9px 0; text-align: right;'>" + cuenta + "</td></tr>"
+                + (aprobada
+                    ? "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>No. de autorización:</td><td style='padding: 9px 0; font-weight: 600; text-align: right;'>" + autorizacion + "</td></tr>"
+                      + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280;'>ID Transacción GestoPago:</td><td style='padding: 9px 0; text-align: right;'>" + idTx + "</td></tr>"
+                    : "")
+                + "          <tr style='border-bottom: 1px solid #e5e7eb;'><td style='padding: 9px 0; color: #6b7280; font-weight: 600;'>" + (aprobada ? "Monto pagado:" : "Monto intentado:") + "</td><td style='padding: 9px 0; font-size: 16px; font-weight: 700; color: " + (aprobada ? "#047857" : "#DC2626") + "; text-align: right;'>$" + datos.getMonto() + " MXN</td></tr>"
+                + "          <tr><td style='padding: 9px 0; color: #6b7280;'>Saldo en cuenta:</td><td style='padding: 9px 0; font-weight: 600; text-align: right;'>$" + datos.getSaldoRestante() + " MXN</td></tr>"
                 + "        </table>"
-                + "        <div style='background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 12px; margin-top: 16px; font-size: 12px; color: #065f46; text-align: center;'>"
-                + "          Conserva este comprobante para cualquier aclaración o consulta sobre tu pago."
+                + "        <div style='background-color: " + cajaBg + "; border: 1px solid " + cajaBorder + "; border-radius: 10px; padding: 14px; margin-top: 14px; font-size: 12px; color: " + cajaColor + "; line-height: 1.5;'>"
+                + "          <strong>Leyenda del producto / Reclamaciones:</strong><br/>" + leyenda
                 + "        </div>"
                 + "      </td>"
                 + "    </tr>"

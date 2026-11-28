@@ -86,6 +86,7 @@ class TransaccionServiceImplTest {
         ReflectionTestUtils.setField(transaccionService, "secretKey", "HPo7OLqB4Fkk4E2yGOtwqw8H5fHR9kNx67OR4g4UdlA=");
         ReflectionTestUtils.setField(transaccionService, "iv", "p5ldmBPdd/9pjC0bDC/nSg==");
         ReflectionTestUtils.setField(transaccionService, "unidad", "083");
+        ReflectionTestUtils.setField(transaccionService, "idDispositivo", "GPS83-TPV-17");
         ReflectionTestUtils.setField(transaccionService, "expiracionMinutos", 5);
         ReflectionTestUtils.setField(transaccionService, "mostrarCodigoEnRespuesta", true);
 
@@ -179,7 +180,39 @@ class TransaccionServiceImplTest {
         assertEquals("carlos@correo.com", correo.getValue().getCorreoDestino());
         assertEquals(new BigDecimal("100.00"), correo.getValue().getMonto());
         assertEquals("291437188", correo.getValue().getIdTx());
-        assertTrue(correo.getValue().getUpc().matches("^[A-Z0-9]{10}$"));
+        assertTrue(correo.getValue().getUpc().matches("^\\d{10}$"));
+        assertEquals("GPS83-TPV-17", resultado.getIdDispositivo());
+        assertEquals(133, resultado.getIdServicio());
+        assertEquals(582, resultado.getIdProducto());
+        assertNotNull(resultado.getHoraLocal());
+        assertNotNull(resultado.getLeyenda());
+    }
+
+    @Test
+    @DisplayName("Si GestoPago responde -1 genera ticket OPERACION RECHAZADA sin descontar saldo y envia correo")
+    void gestoPagoRespondeMenosUnoGeneraTicketRechazado() {
+        cuentaYClienteValidos();
+        when(saldoRepository.findFirstByCuentaIdOrderByFechaDesc(10L)).thenReturn(Optional.of(saldoMock));
+        when(servicio2fa.validarYConsumirCodigo("1452864812", "482915")).thenReturn(true);
+        when(gestoPagoTxClient.enviarTransaccion(anyString(), anyString()))
+                .thenReturn(respuestaGestoPago("-1", "Transaccion rechazada"));
+
+        PagoResponse resultado = transaccionService.procesarPago(pagoTelefono("100.00", "482915"));
+
+        assertFalse(resultado.isAprobada());
+        assertEquals("RECHAZADA", resultado.getEstado());
+        assertEquals("-1", resultado.getCodigoProveedor());
+        assertEquals("Transacción no válida", resultado.getMensajeProveedor());
+        assertTrue(resultado.getUpc().matches("^\\d{10}$"));
+        assertEquals("GPS83-TPV-17", resultado.getIdDispositivo());
+        assertEquals(new BigDecimal("500.00"), resultado.getSaldoRestante());
+        assertNotNull(resultado.getLeyenda());
+
+        verify(saldoRepository, never()).save(any());
+        ArgumentCaptor<ComprobantePagoCorreo> correo = ArgumentCaptor.forClass(ComprobantePagoCorreo.class);
+        verify(servicioNotificacionPago).enviarComprobante(correo.capture());
+        assertFalse(correo.getValue().isAprobada());
+        assertEquals("-1", correo.getValue().getCodigoRespuesta());
     }
 
     @Test

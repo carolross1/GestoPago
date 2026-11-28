@@ -54,8 +54,10 @@ public class TransaccionServiceImpl implements TransaccionService {
 
     private static final String ESTATUS_ACTIVA = "ACTIVA";
     private static final String CODIGO_EXITO_PROVEEDOR = "01";
+    private static final String CODIGO_RECHAZO_PROVEEDOR = "-1";
+    private static final String MENSAJE_RECHAZO_PROVEEDOR = "Transacción no válida";
     private static final DateTimeFormatter FORMATO_HORA_LOCAL = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
-    private static final String CARACTERES_UPC = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    private static final String CARACTERES_UPC = "0123456789";
     private static final int LONGITUD_UPC = 10;
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -76,6 +78,9 @@ public class TransaccionServiceImpl implements TransaccionService {
 
     @Value("${gestopago.tx.unidad:083}")
     private String unidad;
+
+    @Value("${gestopago.auth.codigo-dispositivo:GPS83-TPV-17}")
+    private String idDispositivo;
 
     @Value("${seguridad.2fa.expiracion-minutos:5}")
     private int expiracionMinutos;
@@ -169,28 +174,47 @@ public class TransaccionServiceImpl implements TransaccionService {
                     "El código 2FA es incorrecto, ya fue utilizado o expiró. Solicita uno nuevo en POST /transacciones/2fa");
         }
 
-        // 5. Construir y cifrar payload para GestoPago (sendTx)
+        // 5. Construir y cifrar payload para GestoPago (sendTx) con UPC de 10 dígitos y hora local
         String upc = generarUpc();
-        String payloadCifrado = prepararYCifrarPayloadGestoPago(request, montoPago, upc);
+        LocalDateTime ahora = LocalDateTime.now();
+        String horaLocal = ahora.format(FORMATO_HORA_LOCAL);
+        String destino = request.getTipoDestino() == TipoDestinoTransaccion.TELEFONO
+                ? request.getTelefono() : request.getReferencia();
+        String nombreServicio = productoOpt.map(CatalogoProductosEntity::getServicio)
+                .orElse("Servicio " + request.getIdServicio());
+        String nombreProducto = productoOpt.map(CatalogoProductosEntity::getProducto)
+                .orElse("Producto " + request.getIdProducto());
+        String leyendaProducto = obtenerLeyendaProducto(productoOpt, nombreServicio);
+        String dispositivoActual = (idDispositivo != null && !idDispositivo.isBlank())
+                ? idDispositivo : "GPS83-TPV-17";
+
+        String payloadCifrado = prepararYCifrarPayloadGestoPago(request, montoPago, upc, horaLocal);
 
         // 6. Invocar endpoint sendTx de GestoPago (el token se agrega en GestoPagoServiceFeignConfig)
         String randomParam = System.currentTimeMillis() + "_rand";
-        log.info("Enviando transacción a GestoPago para producto={} servicio={}",
-                request.getIdProducto(), request.getIdServicio());
+        log.info("Enviando transacción a GestoPago para producto={} servicio={} upc={} horaLocal={} dispositivo={}",
+                request.getIdProducto(), request.getIdServicio(), upc, horaLocal, dispositivoActual);
+
+        // En ambiente de pruebas, el destino "5500000000" o "RECHAZO-1" permite probar el ticket de rechazo -1
+        boolean simularRechazoDemo = modoPruebasAprobar
+                && ("5500000000".equals(destino) || "RECHAZO-1".equalsIgnoreCase(destino));
 
         GestoPagoTxResponse response = null;
-        try {
-            response = gestoPagoTxClient.enviarTransaccion(randomParam, payloadCifrado);
-        } catch (Exception e) {
-            if (modoPruebasAprobar) {
-                log.warn("API externa GestoPago no disponible ({}). Activando simulación controlada de pago.",
-                        e.getMessage());
-                response = construirRespuestaSimulada(upc,
-                        "Transacción aprobada (Simulación ambiente de pruebas)");
-            } else {
-                log.error("Fallo al invocar GestoPago sendTx: {}", e.getMessage());
-                throw new TransaccionRechazadaException("ERROR_PROVEEDOR",
-                        "No se pudo conectar con GestoPago para procesar el pago");
+        if (simularRechazoDemo) {
+            response = construirRespuestaRechazada(CODIGO_RECHAZO_PROVEEDOR, MENSAJE_RECHAZO_PROVEEDOR);
+        } else {
+            try {
+                response = gestoPagoTxClient.enviarTransaccion(randomParam, payloadCifrado);
+            } catch (Exception e) {
+                if (modoPruebasAprobar) {
+                    log.warn("API externa GestoPago no disponible ({}). Activando simulación controlada de pago.",
+                            e.getMessage());
+                    response = construirRespuestaSimulada(upc,
+                            "Transacción aprobada (Simulación ambiente de pruebas)");
+                } else {
+                    log.error("Fallo al invocar GestoPago sendTx: {}. Generando ticket de rechazo -1.", e.getMessage());
+                    response = construirRespuestaRechazada(CODIGO_RECHAZO_PROVEEDOR, MENSAJE_RECHAZO_PROVEEDOR);
+                }
             }
         }
 
@@ -201,7 +225,7 @@ public class TransaccionServiceImpl implements TransaccionService {
                 response = construirRespuestaSimulada(upc,
                         "Transacción aprobada (Simulación ambiente de pruebas)");
             } else {
-                throw new TransaccionRechazadaException("SIN_RESPUESTA", "No se recibió respuesta válida de GestoPago");
+                response = construirRespuestaRechazada(CODIGO_RECHAZO_PROVEEDOR, MENSAJE_RECHAZO_PROVEEDOR);
             }
         }
 
@@ -209,6 +233,43 @@ public class TransaccionServiceImpl implements TransaccionService {
         String textoRespuesta = response.getMensaje().getTexto();
 
         boolean esExito = CODIGO_EXITO_PROVEEDOR.equals(codigoRespuesta) || "00".equals(codigoRespuesta);
+        boolean esRechazoMenosUno = CODIGO_RECHAZO_PROVEEDOR.equals(codigoRespuesta != null ? codigoRespuesta.trim() : "");
+
+        if (esRechazoMenosUno) {
+            // Requerimiento: cuando GestoPago responde -1, imprimir/enviar ticket de OPERACIÓN RECHAZADA sin descontar saldo
+            String mensajeFinal = MENSAJE_RECHAZO_PROVEEDOR;
+            log.warn("Operación rechazada por GestoPago (codigo=-1). Cuenta={} UPC={} Servicio={} Producto={}",
+                    cuenta.getNumeroCuenta(), upc, request.getIdServicio(), request.getIdProducto());
+
+            enviarComprobantePorCorreo(cliente, cuenta, request, destino, montoPago,
+                    saldoActual.setScale(2, RoundingMode.HALF_UP),
+                    response, upc, horaLocal, dispositivoActual, leyendaProducto,
+                    false, CODIGO_RECHAZO_PROVEEDOR, mensajeFinal, ahora);
+
+            return PagoResponse.builder()
+                    .aprobada(false)
+                    .estado("RECHAZADA")
+                    .idTx(response.getIdTx() != null ? response.getIdTx() : "-1")
+                    .numAutorizacion(response.getNumAutorizacion() != null ? response.getNumAutorizacion() : "N/A")
+                    .codigoProveedor(CODIGO_RECHAZO_PROVEEDOR)
+                    .mensajeProveedor(mensajeFinal)
+                    .upc(upc)
+                    .horaLocal(horaLocal)
+                    .idServicio(request.getIdServicio())
+                    .idProducto(request.getIdProducto())
+                    .idDispositivo(dispositivoActual)
+                    .leyenda(leyendaProducto)
+                    .numeroCuenta(cuenta.getNumeroCuenta())
+                    .tipoDestino(request.getTipoDestino())
+                    .destino(destino)
+                    .monto(montoPago)
+                    .saldoAnterior(saldoActual.setScale(2, RoundingMode.HALF_UP))
+                    .saldoRestante(saldoActual.setScale(2, RoundingMode.HALF_UP))
+                    .fecha(ahora.toLocalDate())
+                    .hora(ahora.toLocalTime().withNano(0))
+                    .build();
+        }
+
         if (!esExito && modoPruebasAprobar) {
             log.info("Modo simulación activo: GestoPago retornó [codigo={} texto={}]. Aprobando pago en ambiente de pruebas.",
                     codigoRespuesta, textoRespuesta);
@@ -222,6 +283,10 @@ public class TransaccionServiceImpl implements TransaccionService {
             }
         } else if (!esExito) {
             log.warn("Transacción rechazada por GestoPago: codigo={} texto={}", codigoRespuesta, textoRespuesta);
+            enviarComprobantePorCorreo(cliente, cuenta, request, destino, montoPago,
+                    saldoActual.setScale(2, RoundingMode.HALF_UP),
+                    response, upc, horaLocal, dispositivoActual, leyendaProducto,
+                    false, codigoRespuesta, textoRespuesta != null ? textoRespuesta : MENSAJE_RECHAZO_PROVEEDOR, ahora);
             throw new TransaccionRechazadaException(codigoRespuesta, textoRespuesta);
         }
 
@@ -229,15 +294,6 @@ public class TransaccionServiceImpl implements TransaccionService {
         BigDecimal nuevoSaldo = saldoActual.subtract(montoPago).setScale(2, RoundingMode.HALF_UP);
         String tipoMovimiento = request.getTipoDestino() == TipoDestinoTransaccion.TELEFONO
                 ? "PAGO_TELEFONO" : "TRANSFERENCIA";
-
-        LocalDateTime ahora = LocalDateTime.now();
-        String destino = request.getTipoDestino() == TipoDestinoTransaccion.TELEFONO
-                ? request.getTelefono() : request.getReferencia();
-
-        String nombreServicio = productoOpt.map(CatalogoProductosEntity::getServicio)
-                .orElse("Servicio " + request.getIdServicio());
-        String nombreProducto = productoOpt.map(CatalogoProductosEntity::getProducto)
-                .orElse("Producto " + request.getIdProducto());
 
         Saldo movimiento = new Saldo();
         movimiento.setCuentaId(cuenta.getId());
@@ -253,18 +309,27 @@ public class TransaccionServiceImpl implements TransaccionService {
         movimiento.setFecha(ahora);
         saldoRepository.save(movimiento);
 
-        log.info("Pago aplicado con éxito. Cuenta={} SaldoAnterior={} SaldoNuevo={} IdTx={}",
-                cuenta.getNumeroCuenta(), saldoActual, nuevoSaldo, response.getIdTx());
+        log.info("Pago aplicado con éxito. Cuenta={} SaldoAnterior={} SaldoNuevo={} IdTx={} UPC={}",
+                cuenta.getNumeroCuenta(), saldoActual, nuevoSaldo, response.getIdTx(), upc);
 
-        // 9. Enviar comprobante por correo (con logo del producto). Nunca revierte el pago.
+        // 9. Enviar comprobante por correo (con logo, UPC 10 dígitos, hora local, IDs y leyenda). Nunca revierte el pago.
         enviarComprobantePorCorreo(cliente, cuenta, request, destino, montoPago, nuevoSaldo,
-                response, upc, ahora);
+                response, upc, horaLocal, dispositivoActual, leyendaProducto,
+                true, codigoRespuesta, textoRespuesta, ahora);
 
         return PagoResponse.builder()
+                .aprobada(true)
+                .estado("EXITOSA")
                 .idTx(response.getIdTx())
                 .numAutorizacion(response.getNumAutorizacion())
                 .codigoProveedor(codigoRespuesta)
                 .mensajeProveedor(textoRespuesta)
+                .upc(upc)
+                .horaLocal(horaLocal)
+                .idServicio(request.getIdServicio())
+                .idProducto(request.getIdProducto())
+                .idDispositivo(dispositivoActual)
+                .leyenda(leyendaProducto)
                 .numeroCuenta(cuenta.getNumeroCuenta())
                 .tipoDestino(request.getTipoDestino())
                 .destino(destino)
@@ -426,7 +491,10 @@ public class TransaccionServiceImpl implements TransaccionService {
 
     private void enviarComprobantePorCorreo(Cliente cliente, Cuenta cuenta, PagoRequest request, String destino,
                                             BigDecimal monto, BigDecimal saldoRestante,
-                                            GestoPagoTxResponse response, String upc, LocalDateTime fechaHora) {
+                                            GestoPagoTxResponse response, String upc, String horaLocal,
+                                            String dispositivo, String leyenda,
+                                            boolean aprobada, String codigoRespuesta, String mensajeOperacion,
+                                            LocalDateTime fechaHora) {
         try {
             Optional<CatalogoProductosEntity> producto = buscarProducto(request.getIdProducto());
             String nombreServicio = producto.map(CatalogoProductosEntity::getServicio)
@@ -440,14 +508,22 @@ public class TransaccionServiceImpl implements TransaccionService {
                     .numeroCuenta(cuenta.getNumeroCuenta())
                     .servicio(nombreServicio)
                     .producto(nombreProducto)
+                    .idServicio(request.getIdServicio())
+                    .idProducto(request.getIdProducto())
+                    .idDispositivo(dispositivo)
                     .urlLogo(servicioNotificacionPago.construirUrlLogo(
                             request.getIdProducto(), request.getIdServicio(), nombreServicio, nombreProducto))
                     .destino(destino)
                     .monto(monto)
                     .saldoRestante(saldoRestante)
-                    .idTx(response.getIdTx())
-                    .numAutorizacion(response.getNumAutorizacion())
+                    .idTx(response != null ? response.getIdTx() : "-1")
+                    .numAutorizacion(response != null ? response.getNumAutorizacion() : "N/A")
                     .upc(upc)
+                    .horaLocal(horaLocal)
+                    .leyenda(leyenda)
+                    .aprobada(aprobada)
+                    .codigoRespuesta(codigoRespuesta)
+                    .mensajeOperacion(mensajeOperacion)
                     .fechaHora(fechaHora)
                     .build();
 
@@ -455,6 +531,25 @@ public class TransaccionServiceImpl implements TransaccionService {
         } catch (Exception e) {
             log.warn("No se pudo preparar el comprobante de pago por correo: {}", e.getMessage());
         }
+    }
+
+    private String obtenerLeyendaProducto(Optional<CatalogoProductosEntity> productoOpt, String nombreServicio) {
+        String base = productoOpt.map(CatalogoProductosEntity::getLegend)
+                .filter(l -> l != null && !l.isBlank())
+                .orElse("Servicio " + nombreServicio);
+        return base + ". Para aclaraciones o reclamaciones conserva este ticket con tu folio UPC de 10 dígitos, fecha, hora local e IDs de operación.";
+    }
+
+    private GestoPagoTxResponse construirRespuestaRechazada(String codigo, String texto) {
+        GestoPagoTxResponse rej = new GestoPagoTxResponse();
+        rej.setIdTx("-1");
+        rej.setNumAutorizacion("N/A");
+        com.proyecto.servicios.model.gestopago.producto.MensajeDTO msg =
+                new com.proyecto.servicios.model.gestopago.producto.MensajeDTO();
+        msg.setCodigo(codigo);
+        msg.setTexto(texto);
+        rej.setMensaje(msg);
+        return rej;
     }
 
     private Optional<CatalogoProductosEntity> buscarProducto(Integer idProducto) {
@@ -495,10 +590,8 @@ public class TransaccionServiceImpl implements TransaccionService {
         return sb.toString();
     }
 
-    private String prepararYCifrarPayloadGestoPago(PagoRequest request, BigDecimal montoPago, String upc) {
+    private String prepararYCifrarPayloadGestoPago(PagoRequest request, BigDecimal montoPago, String upc, String horaLocal) {
         try {
-            String horaLocal = LocalDateTime.now().format(FORMATO_HORA_LOCAL);
-
             String telefonoParaGestoPago;
             String referenciaParaGestoPago;
 

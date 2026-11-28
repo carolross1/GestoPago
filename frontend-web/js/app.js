@@ -1094,15 +1094,58 @@ const app = {
           this.actualizarUIUsuario();
         }
 
-        // Mostrar Comprobante Digital con Folio UPC
-        document.getElementById('recibo-upc').textContent = `UPC-${p.idTx?.slice(-6) || 'OK'}`;
+        // Mostrar Ticket Digital (Aprobado o OPERACIÓN RECHAZADA -1)
+        const aprobada = p.aprobada !== false && p.codigoProveedor !== '-1' && p.estado !== 'RECHAZADA';
+        const iconBox = document.getElementById('recibo-icono-box');
+        const tituloEl = document.getElementById('recibo-titulo');
+        const subtituloEl = document.getElementById('recibo-subtitulo');
+        const estadoEl = document.getElementById('recibo-estado');
+        const leyendaBox = document.getElementById('recibo-leyenda-box');
+        const leyendaTitulo = document.getElementById('recibo-leyenda-titulo');
+
+        if (aprobada) {
+          iconBox.className = 'w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 mx-auto flex items-center justify-center';
+          iconBox.innerHTML = `<i data-lucide="check-circle" class="w-9 h-9"></i>`;
+          tituloEl.className = 'text-lg font-extrabold text-slate-900';
+          tituloEl.textContent = '¡Pago Procesado Exitosamente!';
+          subtituloEl.textContent = 'Ticket enviado automáticamente a tu correo electrónico';
+          estadoEl.className = 'font-extrabold text-emerald-600';
+          estadoEl.textContent = 'EXITOSA';
+          document.getElementById('recibo-monto-label').textContent = 'Importe Pagado:';
+          leyendaBox.className = 'mt-3 p-3 rounded-xl bg-brand-50 border border-brand-200 text-[11px] text-slate-700 leading-relaxed';
+          leyendaTitulo.className = 'block text-brand-700 mb-0.5';
+          leyendaTitulo.textContent = 'Leyenda del producto / Aclaraciones:';
+          document.getElementById('row-recibo-idtx').classList.remove('hidden');
+          document.getElementById('row-recibo-auth').classList.remove('hidden');
+        } else {
+          iconBox.className = 'w-16 h-16 rounded-full bg-red-100 text-red-600 mx-auto flex items-center justify-center';
+          iconBox.innerHTML = `<i data-lucide="x-circle" class="w-9 h-9"></i>`;
+          tituloEl.className = 'text-lg font-extrabold text-red-600';
+          tituloEl.textContent = 'OPERACIÓN RECHAZADA';
+          subtituloEl.textContent = `${p.mensajeProveedor || 'Transacción no válida'} (Código ${p.codigoProveedor || '-1'}) • No se realizó ningún cargo`;
+          estadoEl.className = 'font-extrabold text-red-600';
+          estadoEl.textContent = `OPERACIÓN RECHAZADA (${p.codigoProveedor || '-1'})`;
+          document.getElementById('recibo-monto-label').textContent = 'Importe Intentado:';
+          leyendaBox.className = 'mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[11px] text-red-900 leading-relaxed';
+          leyendaTitulo.className = 'block text-red-700 mb-0.5';
+          leyendaTitulo.textContent = 'Leyenda del producto para reclamación:';
+          document.getElementById('row-recibo-idtx').classList.add('hidden');
+          document.getElementById('row-recibo-auth').classList.add('hidden');
+        }
+
+        document.getElementById('recibo-mensaje').textContent = p.mensajeProveedor || (aprobada ? 'Operación exitosa' : 'Transacción no válida');
+        document.getElementById('recibo-upc').textContent = p.upc || p.idTx || '-';
+        document.getElementById('recibo-fecha').textContent = `${p.fecha || ''} ${p.hora || ''}`;
+        document.getElementById('recibo-hora-local').textContent = p.horaLocal || '-';
+        document.getElementById('recibo-servicio').textContent = `${this.pagoPendiente.servicioNombre} (ID: ${p.idServicio ?? this.pagoPendiente.idServicio})`;
+        document.getElementById('recibo-producto').textContent = `${this.pagoPendiente.productoNombre} (ID: ${p.idProducto ?? this.pagoPendiente.idProducto})`;
+        document.getElementById('recibo-dispositivo').textContent = p.idDispositivo || 'GPS83-TPV-17';
         document.getElementById('recibo-id-tx').textContent = p.idTx || '-';
         document.getElementById('recibo-auth').textContent = p.numAutorizacion || '-';
-        document.getElementById('recibo-servicio').textContent = this.pagoPendiente.servicioNombre;
         document.getElementById('recibo-destino').textContent = p.destino || '-';
-        document.getElementById('recibo-fecha').textContent = `${p.fecha || ''} ${p.hora || ''}`;
         document.getElementById('recibo-monto').textContent = this.formatoMoneda(p.monto);
         document.getElementById('recibo-nuevo-saldo').textContent = this.formatoMoneda(p.saldoRestante);
+        document.getElementById('recibo-leyenda').textContent = p.leyenda || 'Conserva este ticket con tu UPC de 10 dígitos para reclamaciones.';
 
         document.getElementById('modal-step-2fa').classList.add('hidden');
         document.getElementById('modal-step-comprobante').classList.remove('hidden');

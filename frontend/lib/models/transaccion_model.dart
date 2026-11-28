@@ -197,10 +197,18 @@ class PagoRequest {
 }
 
 class PagoResponse {
+  final bool aprobada;
+  final String estado;
   final String idTx;
   final String numAutorizacion;
   final String codigoProveedor;
   final String mensajeProveedor;
+  final String upc;
+  final String horaLocal;
+  final int? idServicio;
+  final int? idProducto;
+  final String idDispositivo;
+  final String leyenda;
   final String numeroCuenta;
   final String tipoDestino;
   final String destino;
@@ -211,10 +219,18 @@ class PagoResponse {
   final String? hora;
 
   PagoResponse({
+    this.aprobada = true,
+    this.estado = 'EXITOSA',
     required this.idTx,
     required this.numAutorizacion,
     required this.codigoProveedor,
     required this.mensajeProveedor,
+    required this.upc,
+    required this.horaLocal,
+    this.idServicio,
+    this.idProducto,
+    required this.idDispositivo,
+    required this.leyenda,
     required this.numeroCuenta,
     required this.tipoDestino,
     required this.destino,
@@ -226,11 +242,25 @@ class PagoResponse {
   });
 
   factory PagoResponse.fromJson(Map<String, dynamic> json) {
+    final codigo = json['codigoProveedor']?.toString() ?? '01';
+    final aprobada = json['aprobada'] is bool
+        ? json['aprobada'] as bool
+        : (codigo != '-1' && (json['estado']?.toString().toUpperCase() != 'RECHAZADA'));
     return PagoResponse(
+      aprobada: aprobada,
+      estado: json['estado']?.toString() ?? (aprobada ? 'EXITOSA' : 'RECHAZADA'),
       idTx: json['idTx']?.toString() ?? '',
       numAutorizacion: json['numAutorizacion']?.toString() ?? '',
-      codigoProveedor: json['codigoProveedor']?.toString() ?? '',
-      mensajeProveedor: json['mensajeProveedor'] as String? ?? 'Transacción exitosa',
+      codigoProveedor: codigo,
+      mensajeProveedor: json['mensajeProveedor'] as String? ??
+          (aprobada ? 'Transacción exitosa' : 'Transacción no válida'),
+      upc: json['upc']?.toString() ?? '',
+      horaLocal: json['horaLocal']?.toString() ?? '',
+      idServicio: (json['idServicio'] as num?)?.toInt(),
+      idProducto: (json['idProducto'] as num?)?.toInt(),
+      idDispositivo: json['idDispositivo']?.toString() ?? 'GPS83-TPV-17',
+      leyenda: json['leyenda']?.toString() ??
+          'Conserva este ticket y tu UPC de 10 dígitos para aclaraciones o reclamaciones.',
       numeroCuenta: json['numeroCuenta']?.toString() ?? '',
       tipoDestino: json['tipoDestino']?.toString() ?? 'TRANSFERENCIA',
       destino: json['destino']?.toString() ?? '',
