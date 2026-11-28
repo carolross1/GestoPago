@@ -11,6 +11,12 @@ const app = {
   datosValidacion: null,
   pagoPendiente: null,
   ultimoCpConsultado: '',
+  correoDisponibleWeb: null,
+  timerCorreoWeb: null,
+  ultimoCorreoVerificadoWeb: '',
+  codigo2faSolicitadoWeb: false,
+  adminCuentas: [],
+  adminFiltro: '',
   tabuladoresSueldo: [
     { id: 'TAB_1', etiqueta: 'De $0 a $10,000 MXN', minimo: 0.01, maximo: 10000 },
     { id: 'TAB_2', etiqueta: 'De $10,001 a $25,000 MXN', minimo: 10001, maximo: 25000 },
@@ -278,7 +284,20 @@ const app = {
         return acotado;
       }
     });
-    Validators.bind('new-email', v => Validators.correo(v));
+    Validators.bind('new-email', v => {
+      const errFormato = Validators.correo(v);
+      const limpio = (v || '').trim().toLowerCase();
+      if (errFormato) {
+        this.limpiarEstadoCorreoWeb();
+        return errFormato;
+      }
+      if (limpio !== this.ultimoCorreoVerificadoWeb) {
+        this.programarVerificacionCorreoWeb(limpio);
+      } else if (this.correoDisponibleWeb === false) {
+        return 'Este correo ya está registrado. Usa otro correo o inicia sesión.';
+      }
+      return null;
+    });
     Validators.bind('new-telefono', v => Validators.telefonoMexico(v), {
       transform: v => v.replace(/\D/g, '').slice(0, 10)
     });
@@ -290,6 +309,31 @@ const app = {
     Validators.bind('new-password-confirm', v =>
       Validators.confirmarPassword(v, document.getElementById('new-password')?.value || '')
     );
+
+    // Módulo Admin (Abonos)
+    Validators.bind('admin-cuenta', v => {
+      const s = (v || '').trim();
+      if (!s) return 'Ingresa el número de cuenta';
+      if (!/^\d+$/.test(s)) return 'Solo dígitos numéricos';
+      if (s.length < 10) return `Faltan ${10 - s.length} dígitos (${s.length}/10)`;
+      return null;
+    }, {
+      transform: v => v.replace(/\D/g, '').slice(0, 10)
+    });
+    Validators.bind('admin-monto', v => {
+      const s = (v || '').trim();
+      if (!s) return 'Ingresa el monto a abonar';
+      const n = Number(s);
+      if (Number.isNaN(n) || n <= 0) return 'El monto debe ser mayor a $0.00';
+      if (n > 500000) return 'El abono máximo por operación es de $500,000 MXN';
+      return null;
+    }, {
+      transform: v => {
+        const limpio = v.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+        const partes = limpio.split('.');
+        return partes.length > 1 ? `${partes[0]}.${partes[1].slice(0, 2)}` : limpio;
+      }
+    });
 
     // Pago de servicios y 2FA
     Validators.bind('pago-input-destino', v => {
@@ -320,6 +364,56 @@ const app = {
     }, {
       transform: v => v.replace(/\D/g, '').slice(0, 6)
     });
+  },
+
+  limpiarEstadoCorreoWeb() {
+    clearTimeout(this.timerCorreoWeb);
+    this.correoDisponibleWeb = null;
+    this.ultimoCorreoVerificadoWeb = '';
+    const msgEl = document.getElementById('new-email-status-msg');
+    if (msgEl) {
+      msgEl.classList.add('hidden');
+      msgEl.textContent = '';
+    }
+  },
+
+  programarVerificacionCorreoWeb(correo) {
+    clearTimeout(this.timerCorreoWeb);
+    this.correoDisponibleWeb = null;
+    const msgEl = document.getElementById('new-email-status-msg');
+    if (msgEl) {
+      msgEl.className = 'text-[11px] font-semibold mt-1 text-brand-700';
+      msgEl.textContent = 'Verificando disponibilidad del correo...';
+      msgEl.classList.remove('hidden');
+    }
+    this.timerCorreoWeb = setTimeout(() => this.verificarCorreoEnVivoWeb(correo), 450);
+  },
+
+  async verificarCorreoEnVivoWeb(correo) {
+    const input = document.getElementById('new-email');
+    const msgEl = document.getElementById('new-email-status-msg');
+    if (!input || input.value.trim().toLowerCase() !== correo) return;
+
+    const resp = await API.verificarCorreo(correo);
+    if (!input || input.value.trim().toLowerCase() !== correo) return;
+
+    if (resp.ok && resp.data && typeof resp.data.disponible === 'boolean') {
+      this.ultimoCorreoVerificadoWeb = correo;
+      this.correoDisponibleWeb = resp.data.disponible;
+      if (resp.data.disponible) {
+        if (msgEl) {
+          msgEl.className = 'text-[11px] font-semibold mt-1 text-emerald-600';
+          msgEl.textContent = '✓ Correo disponible para registro';
+          msgEl.classList.remove('hidden');
+        }
+        Validators.setFeedback(input, null);
+      } else {
+        if (msgEl) msgEl.classList.add('hidden');
+        Validators.setFeedback(input, 'Este correo ya está registrado. Usa otro correo o inicia sesión.');
+      }
+    } else if (msgEl) {
+      msgEl.classList.add('hidden');
+    }
   },
 
   validarCampos(ids) {
@@ -388,10 +482,11 @@ const app = {
   },
 
   setAppSection(section) {
-    const sections = ['dashboard', 'catalogo', 'historial'];
+    const sections = ['dashboard', 'catalogo', 'historial', 'admin'];
     sections.forEach(s => {
       const el = document.getElementById(`section-${s}`);
       const navBtn = document.getElementById(`nav-${s}`);
+      if (!el || !navBtn) return;
       if (s === section) {
         el.classList.remove('hidden');
         navBtn.className = 'w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all bg-brand-700 text-white shadow-sm';
@@ -404,7 +499,8 @@ const app = {
     const titles = {
       dashboard: 'Dashboard General',
       catalogo: 'Catálogo de Productos y Servicios',
-      historial: 'Historial de Transacciones'
+      historial: 'Historial de Transacciones',
+      admin: 'Módulo Admin • Abonos a Clientes'
     };
     document.getElementById('section-title').textContent = titles[section] || 'GestoPago';
 
@@ -413,6 +509,9 @@ const app = {
     }
     if (section === 'historial') {
       this.cargarHistorial();
+    }
+    if (section === 'admin') {
+      this.cargarCuentasAdmin();
     }
 
     if (window.lucide) lucide.createIcons();
@@ -461,8 +560,8 @@ const app = {
       } else {
         this.mostrarAlertaAuth('error', resp.mensaje || (resp.errores && resp.errores[0]) || 'Credenciales inválidas');
       }
-    } catch (err) {
-      this.mostrarAlertaAuth('error', err.message || 'Error de conexión');
+    } catch (_) {
+      this.mostrarAlertaAuth('error', 'No pudimos iniciar sesión en este momento. Intenta de nuevo.');
     } finally {
       btn.disabled = false;
       btn.innerHTML = `<span>Ingresar al Portal</span> <i data-lucide="arrow-right" class="w-4 h-4"></i>`;
@@ -481,6 +580,14 @@ const app = {
     ];
     if (!this.validarCampos(camposCrear)) {
       this.mostrarAlertaAuth('error', 'Corrige los campos marcados en rojo antes de enviar.');
+      return;
+    }
+    const correoCheck = document.getElementById('new-email').value.trim().toLowerCase();
+    if (this.ultimoCorreoVerificadoWeb !== correoCheck) {
+      await this.verificarCorreoEnVivoWeb(correoCheck);
+    }
+    if (this.correoDisponibleWeb === false) {
+      this.mostrarAlertaAuth('error', 'Este correo ya está registrado. Usa otro correo o inicia sesión.');
       return;
     }
     const pass = document.getElementById('new-password').value;
@@ -548,10 +655,11 @@ const app = {
 
       this.mostrarAlertaAuth('success', `¡Cuenta creada exitosamente! Número de cuenta asignado: ${numCuenta}. Ya puedes iniciar sesión.`);
       document.getElementById('form-crear').reset();
+      this.limpiarEstadoCorreoWeb();
       document.getElementById('login-email').value = correo;
       setTimeout(() => this.setAuthTab('login'), 2500);
-    } catch (err) {
-      this.mostrarAlertaAuth('error', err.message || 'Error al crear cuenta');
+    } catch (_) {
+      this.mostrarAlertaAuth('error', 'No pudimos crear la cuenta en este momento. Intenta de nuevo.');
     } finally {
       btn.disabled = false;
       btn.innerHTML = `<span>Crear Cuenta y Activar Acceso</span> <i data-lucide="user-plus" class="w-4 h-4"></i>`;
@@ -587,8 +695,8 @@ const app = {
       } else {
         this.mostrarAlertaAuth('error', resp.mensaje || (resp.errores && resp.errores[0]) || 'Error al registrar credenciales');
       }
-    } catch (err) {
-      this.mostrarAlertaAuth('error', err.message || 'Error al conectar');
+    } catch (_) {
+      this.mostrarAlertaAuth('error', 'No pudimos completar el registro. Verifica tu conexión e intenta de nuevo.');
     } finally {
       btn.disabled = false;
       btn.innerHTML = `<span>Crear Credenciales de Acceso</span> <i data-lucide="user-plus" class="w-4 h-4"></i>`;
@@ -954,12 +1062,12 @@ const app = {
         banner.innerHTML = `<i data-lucide="alert-octagon" class="w-4 h-4 flex-shrink-0"></i> <span>${resp.data?.mensaje || resp.mensaje || 'Referencia rechazada por el proveedor.'}</span>`;
         banner.classList.remove('hidden');
       }
-    } catch (err) {
+    } catch (_) {
       btnValidar.disabled = false;
       btnValidar.innerHTML = `<i data-lucide="search" class="w-4 h-4"></i> <span>Validar</span>`;
       this.resetValidacionReferencia();
       banner.className = 'p-3.5 rounded-xl text-xs font-semibold bg-red-50 text-red-700 border border-red-200 flex items-center gap-2';
-      banner.innerHTML = `<i data-lucide="wifi-off" class="w-4 h-4 flex-shrink-0"></i> <span>${err.message || 'Error de conexión con el servicio de validación.'}</span>`;
+      banner.innerHTML = `<i data-lucide="wifi-off" class="w-4 h-4 flex-shrink-0"></i> <span>No pudimos validar la referencia en este momento. Intenta de nuevo.</span>`;
       banner.classList.remove('hidden');
     }
 
@@ -990,17 +1098,53 @@ const app = {
       return;
     }
 
-    const btnProceder = document.getElementById('btn-proceder-pago');
-    btnProceder.disabled = true;
-    btnProceder.innerHTML = `<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span> <span>Enviando código 2FA...</span>`;
+    // No enviamos correo 2FA todavía: el usuario lo solicita explícitamente en el siguiente paso
+    this.codigo2faSolicitadoWeb = false;
+    this.codigoRespaldo2fa = null;
+
+    document.getElementById('2fa-resumen-servicio').textContent = document.getElementById('pago-servicio-nombre').textContent;
+    document.getElementById('2fa-resumen-ref').textContent = destino;
+    document.getElementById('2fa-resumen-monto').textContent = this.formatoMoneda(monto);
+    document.getElementById('input-codigo-2fa').value = '';
+    document.getElementById('alerta-error-2fa').classList.add('hidden');
+    document.getElementById('banner-codigo-respaldo-2fa').classList.add('hidden');
+    document.getElementById('bloque-solicitar-2fa').classList.remove('hidden');
+    document.getElementById('bloque-input-2fa').classList.add('hidden');
+    document.getElementById('btn-confirmar-2fa').classList.add('hidden');
+
+    this.pagoPendiente = {
+      numeroCuenta: this.cuenta.numeroCuenta,
+      idServicio,
+      idProducto,
+      monto,
+      tipoDestino: esTelefono ? 'TELEFONO' : 'TRANSFERENCIA',
+      telefono: esTelefono ? destino : null,
+      referencia: !esTelefono ? destino : null,
+      servicioNombre: document.getElementById('pago-servicio-nombre').textContent,
+      productoNombre: document.getElementById('pago-producto-nombre').textContent
+    };
+
+    document.getElementById('modal-step-form').classList.add('hidden');
+    document.getElementById('modal-step-2fa').classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  },
+
+  async solicitarCodigo2faWeb() {
+    if (!this.cuenta?.numeroCuenta) return;
+    const btnEnviar = document.getElementById('btn-enviar-codigo-2fa');
+    const alerta = document.getElementById('alerta-error-2fa');
+    alerta.classList.add('hidden');
+
+    if (btnEnviar) {
+      btnEnviar.disabled = true;
+      btnEnviar.innerHTML = `<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span> <span>Enviando código...</span>`;
+    }
 
     try {
-      const resp2fa = await API.solicitar2fa(this.cuenta.numeroCuenta);
+      const resp2fa = await API.solicitar2fa(this.cuenta.numeroCuenta, true);
       if (resp2fa.ok && resp2fa.data) {
+        this.codigo2faSolicitadoWeb = true;
         document.getElementById('correo-enmascarado-2fa').textContent = resp2fa.data.correoEnmascarado || 'tu correo registrado';
-        document.getElementById('2fa-resumen-servicio').textContent = document.getElementById('pago-servicio-nombre').textContent;
-        document.getElementById('2fa-resumen-ref').textContent = destino;
-        document.getElementById('2fa-resumen-monto').textContent = this.formatoMoneda(monto);
 
         const bannerRespaldo = document.getElementById('banner-codigo-respaldo-2fa');
         const valorRespaldo = document.getElementById('valor-codigo-respaldo-2fa');
@@ -1012,31 +1156,22 @@ const app = {
           bannerRespaldo.classList.add('hidden');
         }
 
-        this.pagoPendiente = {
-          numeroCuenta: this.cuenta.numeroCuenta,
-          idServicio,
-          idProducto,
-          monto,
-          tipoDestino: esTelefono ? 'TELEFONO' : 'TRANSFERENCIA',
-          telefono: esTelefono ? destino : null,
-          referencia: !esTelefono ? destino : null,
-          servicioNombre: document.getElementById('pago-servicio-nombre').textContent,
-          productoNombre: document.getElementById('pago-producto-nombre').textContent
-        };
-
-        // Cambiar a paso 2FA
-        document.getElementById('modal-step-form').classList.add('hidden');
-        document.getElementById('modal-step-2fa').classList.remove('hidden');
-        document.getElementById('input-codigo-2fa').value = '';
-        document.getElementById('alerta-error-2fa').classList.add('hidden');
+        document.getElementById('bloque-solicitar-2fa').classList.add('hidden');
+        document.getElementById('bloque-input-2fa').classList.remove('hidden');
+        document.getElementById('btn-confirmar-2fa').classList.remove('hidden');
+        document.getElementById('input-codigo-2fa').focus();
       } else {
-        alert(resp2fa.mensaje || 'Error al enviar código 2FA');
+        alerta.textContent = resp2fa.mensaje || 'No pudimos enviar el código de seguridad. Intenta de nuevo.';
+        alerta.classList.remove('hidden');
       }
-    } catch (err) {
-      alert(err.message || 'Error al enviar código 2FA');
+    } catch (_) {
+      alerta.textContent = 'No pudimos enviar el código de seguridad. Intenta de nuevo.';
+      alerta.classList.remove('hidden');
     } finally {
-      btnProceder.disabled = false;
-      btnProceder.innerHTML = `<i data-lucide="shield-check" class="w-4 h-4"></i> <span>Proceder al Pago con Código 2FA</span>`;
+      if (btnEnviar) {
+        btnEnviar.disabled = false;
+        btnEnviar.innerHTML = `<i data-lucide="mail" class="w-4 h-4"></i> <span>Enviar código 2FA a mi correo</span>`;
+      }
       if (window.lucide) lucide.createIcons();
     }
   },
@@ -1114,7 +1249,7 @@ const app = {
           document.getElementById('recibo-monto-label').textContent = 'Importe Pagado:';
           leyendaBox.className = 'mt-3 p-3 rounded-xl bg-brand-50 border border-brand-200 text-[11px] text-slate-700 leading-relaxed';
           leyendaTitulo.className = 'block text-brand-700 mb-0.5';
-          leyendaTitulo.textContent = 'Leyenda del producto / Aclaraciones:';
+          leyendaTitulo.textContent = 'Dudas y aclaraciones:';
           document.getElementById('row-recibo-auth').classList.remove('hidden');
           document.getElementById('row-recibo-codigo').classList.add('hidden');
         } else {
@@ -1128,7 +1263,7 @@ const app = {
           document.getElementById('recibo-monto-label').textContent = 'Importe Intentado:';
           leyendaBox.className = 'mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[11px] text-red-900 leading-relaxed';
           leyendaTitulo.className = 'block text-red-700 mb-0.5';
-          leyendaTitulo.textContent = 'Leyenda del producto para reclamación:';
+          leyendaTitulo.textContent = 'Dudas y aclaraciones:';
           document.getElementById('row-recibo-auth').classList.add('hidden');
           document.getElementById('row-recibo-codigo').classList.remove('hidden');
           document.getElementById('recibo-codigo').textContent = p.codigoProveedor || '-1';
@@ -1143,7 +1278,7 @@ const app = {
         document.getElementById('recibo-destino').textContent = p.destino || '-';
         document.getElementById('recibo-monto').textContent = this.formatoMoneda(p.monto);
         document.getElementById('recibo-nuevo-saldo').textContent = this.formatoMoneda(p.saldoRestante);
-        document.getElementById('recibo-leyenda').textContent = p.leyenda || 'Conserva este ticket con tu UPC de 10 dígitos para reclamaciones.';
+        document.getElementById('recibo-leyenda').textContent = p.leyenda || 'Conserva este ticket con tu UPC de 10 dígitos para dudas y aclaraciones.';
 
         document.getElementById('modal-step-2fa').classList.add('hidden');
         document.getElementById('modal-step-comprobante').classList.remove('hidden');
@@ -1151,8 +1286,8 @@ const app = {
         alerta.textContent = resp.mensaje || (resp.errores && resp.errores[0]) || 'Código 2FA incorrecto o pago rechazado';
         alerta.classList.remove('hidden');
       }
-    } catch (err) {
-      alerta.textContent = err.message || 'Error al procesar el pago';
+    } catch (_) {
+      alerta.textContent = 'No pudimos procesar el pago en este momento. Intenta de nuevo.';
       alerta.classList.remove('hidden');
     } finally {
       btnConfirmar.disabled = false;
@@ -1303,6 +1438,150 @@ const app = {
 
   cerrarModalDetalle() {
     document.getElementById('modal-detalle-historial').classList.add('hidden');
+  },
+
+  // -------------------------------------------------------------
+  // MÓDULO ADMIN (ABONOS A CLIENTES)
+  // -------------------------------------------------------------
+  async cargarCuentasAdmin() {
+    const tbody = document.getElementById('admin-cuentas-tbody');
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-slate-400">Cargando clientes y cuentas...</td></tr>`;
+    }
+
+    const [respClientes, respCuentas] = await Promise.all([
+      API.listarClientes(),
+      API.listarCuentas()
+    ]);
+
+    const mapaClientes = new Map();
+    if (respClientes.ok && Array.isArray(respClientes.data)) {
+      respClientes.data.forEach(c => {
+        if (c && c.id != null) mapaClientes.set(Number(c.id), c);
+      });
+    }
+
+    if (respCuentas.ok && Array.isArray(respCuentas.data)) {
+      this.adminCuentas = respCuentas.data.map(cta => {
+        const cli = mapaClientes.get(Number(cta.clienteId)) || {};
+        const nombreCompleto = [cli.nombre, cli.segundoNombre, cli.apellidoPaterno, cli.apellidoMaterno]
+          .filter(Boolean)
+          .join(' ') || `Cliente #${cta.clienteId || '-'}`;
+        return {
+          numeroCuenta: String(cta.numeroCuenta || ''),
+          saldoActual: Number(cta.saldoActual || 0),
+          nombre: nombreCompleto,
+          correo: cli.correo || ''
+        };
+      });
+      this.renderCuentasAdmin();
+    } else if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-red-500 font-semibold">${respCuentas.mensaje || 'No se pudieron cargar las cuentas.'}</td></tr>`;
+    }
+  },
+
+  filtrarCuentasAdmin(q) {
+    this.adminFiltro = (q || '').trim().toLowerCase();
+    this.renderCuentasAdmin();
+  },
+
+  renderCuentasAdmin() {
+    const tbody = document.getElementById('admin-cuentas-tbody');
+    if (!tbody) return;
+    const q = this.adminFiltro;
+    const filtradas = q
+      ? this.adminCuentas.filter(item =>
+          item.nombre.toLowerCase().includes(q) ||
+          item.correo.toLowerCase().includes(q) ||
+          item.numeroCuenta.includes(q)
+        )
+      : this.adminCuentas;
+
+    if (!filtradas.length) {
+      tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-slate-400">No se encontraron cuentas con ese criterio.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = filtradas.map(item => `
+      <tr class="hover:bg-brand-50/40 transition-colors cursor-pointer" onclick="app.seleccionarCuentaAdmin('${item.numeroCuenta}')">
+        <td class="py-3 px-5">
+          <span class="block font-bold text-slate-900">${item.nombre}</span>
+          <span class="text-[11px] text-slate-500">${item.correo || 'Sin correo'}</span>
+        </td>
+        <td class="py-3 px-4 font-mono font-bold text-brand-700">${item.numeroCuenta}</td>
+        <td class="py-3 px-4 text-right font-extrabold text-emerald-700">${this.formatoMoneda(item.saldoActual)}</td>
+        <td class="py-3 px-5 text-center">
+          <button type="button" onclick="event.stopPropagation(); app.seleccionarCuentaAdmin('${item.numeroCuenta}')" class="px-3 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold text-[11px]">
+            Seleccionar
+          </button>
+        </td>
+      </tr>
+    `).join('');
+  },
+
+  seleccionarCuentaAdmin(numCuenta) {
+    const el = document.getElementById('admin-cuenta');
+    if (el) {
+      el.value = numCuenta;
+      if (el._liveValidate) el._liveValidate();
+    }
+    const montoEl = document.getElementById('admin-monto');
+    if (montoEl) montoEl.focus();
+  },
+
+  setMontoAdmin(monto) {
+    const el = document.getElementById('admin-monto');
+    if (el) {
+      el.value = String(monto);
+      if (el._liveValidate) el._liveValidate();
+    }
+  },
+
+  mostrarAlertaAdmin(tipo, mensaje) {
+    const box = document.getElementById('admin-abono-alert');
+    if (!box) return;
+    box.classList.remove('hidden');
+    if (tipo === 'success') {
+      box.className = 'p-3 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200';
+    } else {
+      box.className = 'p-3 rounded-xl text-xs font-semibold bg-red-50 text-red-700 border border-red-200';
+    }
+    box.textContent = mensaje;
+  },
+
+  async handleAbonoAdmin(e) {
+    e.preventDefault();
+    if (!this.validarCampos(['admin-cuenta', 'admin-monto'])) {
+      this.mostrarAlertaAdmin('error', 'Revisa los campos marcados en rojo antes de aplicar el abono.');
+      return;
+    }
+
+    const numeroCuenta = document.getElementById('admin-cuenta').value.trim();
+    const monto = Number(document.getElementById('admin-monto').value);
+    const btn = document.getElementById('btn-admin-abonar');
+
+    btn.disabled = true;
+    btn.innerHTML = `<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span> <span>Aplicando abono...</span>`;
+
+    try {
+      const resp = await API.abonarCuenta(numeroCuenta, monto);
+      if (resp.ok) {
+        this.mostrarAlertaAdmin('success', `✓ Abono de ${this.formatoMoneda(monto)} aplicado a la cuenta ${numeroCuenta}.`);
+        document.getElementById('admin-monto').value = '';
+        await this.cargarCuentasAdmin();
+        if (this.cuenta && this.cuenta.numeroCuenta === numeroCuenta) {
+          await this.cargarDatosUsuario();
+        }
+      } else {
+        this.mostrarAlertaAdmin('error', resp.mensaje || 'No se pudo aplicar el abono a esa cuenta.');
+      }
+    } catch (_) {
+      this.mostrarAlertaAdmin('error', 'No pudimos aplicar el abono en este momento. Intenta de nuevo.');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = `<i data-lucide="plus-circle" class="w-4 h-4"></i> <span>Aplicar Abono</span>`;
+      if (window.lucide) lucide.createIcons();
+    }
   }
 };
 

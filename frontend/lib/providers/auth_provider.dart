@@ -167,6 +167,19 @@ class AuthProvider extends ChangeNotifier {
     ];
   }
 
+  /// Verifica en vivo si un correo electrónico está disponible para registro.
+  Future<bool?> verificarCorreoDisponible(String correo) async {
+    final response = await _api.post<Map<String, dynamic>>(
+      ApiConstants.verificarCorreo,
+      body: {'correo': correo.trim().toLowerCase()},
+      fromJson: (json) => json is Map<String, dynamic> ? json : <String, dynamic>{},
+    );
+    if (response.exito && response.datos != null && response.datos!['disponible'] is bool) {
+      return response.datos!['disponible'] as bool;
+    }
+    return null;
+  }
+
   /// Consulta dirección por Código Postal vía backend (/catalogos/cp/{cp}).
   Future<Map<String, dynamic>?> consultarCodigoPostal(String cp) async {
     final response = await _api.get<Map<String, dynamic>>(

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,6 +9,8 @@ class ApiClient {
   static final ApiClient _instance = ApiClient._internal();
   factory ApiClient() => _instance;
   ApiClient._internal();
+
+  static const Duration _timeout = Duration(seconds: 25);
 
   String? _token;
   String? get token => _token;
@@ -38,20 +41,29 @@ class ApiClient {
     return headers;
   }
 
+  /// Convierte excepciones técnicas en mensajes cortos y amigables sin URLs ni trazas.
+  String _mensajeAmigable(Object e) {
+    if (e is TimeoutException) {
+      return 'El servicio tardó demasiado en responder. Intenta de nuevo en unos segundos.';
+    }
+    return 'No pudimos conectar con el servicio. Verifica tu conexión a internet e intenta de nuevo.';
+  }
+
   Future<ApiResponse<T>> get<T>(
     String endpoint, {
     T Function(dynamic)? fromJson,
   }) async {
     final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
     try {
-      final response = await http.get(uri, headers: _buildHeaders());
+      final response = await http.get(uri, headers: _buildHeaders()).timeout(_timeout);
       return _processResponse<T>(response, fromJson);
     } catch (e) {
+      final msg = _mensajeAmigable(e);
       return ApiResponse<T>(
         exito: false,
-        codigo: 500,
-        mensaje: 'Error de conexión: $e',
-        errores: [e.toString()],
+        codigo: 503,
+        mensaje: msg,
+        errores: [msg],
       );
     }
   }
@@ -63,18 +75,21 @@ class ApiClient {
   }) async {
     final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
     try {
-      final response = await http.post(
-        uri,
-        headers: _buildHeaders(),
-        body: body != null ? jsonEncode(body) : null,
-      );
+      final response = await http
+          .post(
+            uri,
+            headers: _buildHeaders(),
+            body: body != null ? jsonEncode(body) : null,
+          )
+          .timeout(_timeout);
       return _processResponse<T>(response, fromJson);
     } catch (e) {
+      final msg = _mensajeAmigable(e);
       return ApiResponse<T>(
         exito: false,
-        codigo: 500,
-        mensaje: 'Error de conexión: $e',
-        errores: [e.toString()],
+        codigo: 503,
+        mensaje: msg,
+        errores: [msg],
       );
     }
   }
@@ -86,12 +101,10 @@ class ApiClient {
     try {
       final decoded = jsonDecode(utf8.decode(response.bodyBytes));
       if (decoded is Map<String, dynamic>) {
-        // Si viene envuelto en el formato estándar RespuestaApi { exito, codigo, datos, ... }
         if (decoded.containsKey('exito') && decoded.containsKey('codigo')) {
           return ApiResponse<T>.fromJson(decoded, fromJson);
         }
 
-        // Si es una respuesta directa (como CatalogoAgrupadoDTO de GET /productos)
         final bool isSuccess = response.statusCode >= 200 && response.statusCode < 300;
         final dynamic rawData = decoded.containsKey('datos') ? decoded['datos'] : decoded;
         return ApiResponse<T>(
@@ -108,14 +121,16 @@ class ApiClient {
         codigo: response.statusCode,
         mensaje: 'Respuesta recibida',
       );
-    } catch (e) {
+    } catch (_) {
+      final msg = response.statusCode >= 500
+          ? 'El servicio no está disponible en este momento. Intenta en unos segundos.'
+          : 'No pudimos completar tu solicitud. Intenta de nuevo.';
       return ApiResponse<T>(
         exito: false,
         codigo: response.statusCode,
-        mensaje: 'Error al interpretar respuesta: ${response.body}',
-        errores: [e.toString()],
+        mensaje: msg,
+        errores: [msg],
       );
     }
   }
 }
-

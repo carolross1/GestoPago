@@ -53,14 +53,20 @@ class PagoProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> solicitarCodigo2fa(String numeroCuenta) async {
+  Future<bool> solicitarCodigo2fa(
+    String numeroCuenta, {
+    bool enviarCorreo = true,
+  }) async {
     _isEnviando2fa = true;
     _errorMessage = null;
     notifyListeners();
 
     final response = await _api.post<Solicitar2faResponse>(
       ApiConstants.solicitar2fa,
-      body: Solicitar2faRequest(numeroCuenta: numeroCuenta).toJson(),
+      body: Solicitar2faRequest(
+        numeroCuenta: numeroCuenta,
+        enviarCorreo: enviarCorreo,
+      ).toJson(),
       fromJson: (json) => Solicitar2faResponse.fromJson(json as Map<String, dynamic>),
     );
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -66,30 +67,30 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
 
   // Catálogo oficial de profesiones (INEGI SINCO) + Tabulador salarial
   List<Map<String, dynamic>> _tabuladores = [
-    {'id': 'TAB_1', 'etiqueta': 'De \$0 a \$10,000 MXN', 'minimo': 0.01, 'maximo': 10000.0},
-    {'id': 'TAB_2', 'etiqueta': 'De \$10,001 a \$25,000 MXN', 'minimo': 10001.0, 'maximo': 25000.0},
-    {'id': 'TAB_3', 'etiqueta': 'De \$25,001 a \$50,000 MXN', 'minimo': 25001.0, 'maximo': 50000.0},
-    {'id': 'TAB_4', 'etiqueta': 'De \$50,001 a \$100,000 MXN', 'minimo': 50001.0, 'maximo': 100000.0},
-    {'id': 'TAB_5', 'etiqueta': 'De \$100,001 a \$250,000 MXN', 'minimo': 100001.0, 'maximo': 250000.0},
+    <String, dynamic>{'id': 'TAB_1', 'etiqueta': 'De \$0 a \$10,000 MXN', 'minimo': 0.01, 'maximo': 10000.0},
+    <String, dynamic>{'id': 'TAB_2', 'etiqueta': 'De \$10,001 a \$25,000 MXN', 'minimo': 10001.0, 'maximo': 25000.0},
+    <String, dynamic>{'id': 'TAB_3', 'etiqueta': 'De \$25,001 a \$50,000 MXN', 'minimo': 25001.0, 'maximo': 50000.0},
+    <String, dynamic>{'id': 'TAB_4', 'etiqueta': 'De \$50,001 a \$100,000 MXN', 'minimo': 50001.0, 'maximo': 100000.0},
+    <String, dynamic>{'id': 'TAB_5', 'etiqueta': 'De \$100,001 a \$250,000 MXN', 'minimo': 100001.0, 'maximo': 250000.0},
   ];
 
   List<Map<String, dynamic>> _profesiones = [
-    {'nombre': 'Estudiante', 'categoria': 'Educación', 'tabuladorSugerido': 'TAB_1'},
-    {'nombre': 'Trabajo del Hogar', 'categoria': 'Servicios', 'tabuladorSugerido': 'TAB_1'},
-    {'nombre': 'Jubilado o Pensionado', 'categoria': 'Pensiones', 'tabuladorSugerido': 'TAB_1'},
-    {'nombre': 'Auxiliar Administrativo', 'categoria': 'Administración', 'tabuladorSugerido': 'TAB_2'},
-    {'nombre': 'Comerciante', 'categoria': 'Comercio', 'tabuladorSugerido': 'TAB_2'},
-    {'nombre': 'Docente o Profesor', 'categoria': 'Educación', 'tabuladorSugerido': 'TAB_2'},
-    {'nombre': 'Enfermero', 'categoria': 'Salud', 'tabuladorSugerido': 'TAB_2'},
-    {'nombre': 'Disenador Grafico o Digital', 'categoria': 'Creatividad', 'tabuladorSugerido': 'TAB_2'},
-    {'nombre': 'Contador Publico', 'categoria': 'Finanzas', 'tabuladorSugerido': 'TAB_3'},
-    {'nombre': 'Abogado', 'categoria': 'Derecho', 'tabuladorSugerido': 'TAB_3'},
-    {'nombre': 'Arquitecto', 'categoria': 'Construcción', 'tabuladorSugerido': 'TAB_3'},
-    {'nombre': 'Ingeniero en Sistemas', 'categoria': 'Tecnología', 'tabuladorSugerido': 'TAB_3'},
-    {'nombre': 'Desarrollador de Software', 'categoria': 'Tecnología', 'tabuladorSugerido': 'TAB_3'},
-    {'nombre': 'Medico General o Especialista', 'categoria': 'Salud', 'tabuladorSugerido': 'TAB_4'},
-    {'nombre': 'Empresario', 'categoria': 'Dirección', 'tabuladorSugerido': 'TAB_4'},
-    {'nombre': 'Director Ejecutivo', 'categoria': 'Dirección', 'tabuladorSugerido': 'TAB_5'},
+    <String, dynamic>{'nombre': 'Estudiante', 'categoria': 'Educación', 'tabuladorSugerido': 'TAB_1'},
+    <String, dynamic>{'nombre': 'Trabajo del Hogar', 'categoria': 'Servicios', 'tabuladorSugerido': 'TAB_1'},
+    <String, dynamic>{'nombre': 'Jubilado o Pensionado', 'categoria': 'Pensiones', 'tabuladorSugerido': 'TAB_1'},
+    <String, dynamic>{'nombre': 'Auxiliar Administrativo', 'categoria': 'Administración', 'tabuladorSugerido': 'TAB_2'},
+    <String, dynamic>{'nombre': 'Comerciante', 'categoria': 'Comercio', 'tabuladorSugerido': 'TAB_2'},
+    <String, dynamic>{'nombre': 'Docente o Profesor', 'categoria': 'Educación', 'tabuladorSugerido': 'TAB_2'},
+    <String, dynamic>{'nombre': 'Enfermero', 'categoria': 'Salud', 'tabuladorSugerido': 'TAB_2'},
+    <String, dynamic>{'nombre': 'Disenador Grafico o Digital', 'categoria': 'Creatividad', 'tabuladorSugerido': 'TAB_2'},
+    <String, dynamic>{'nombre': 'Contador Publico', 'categoria': 'Finanzas', 'tabuladorSugerido': 'TAB_3'},
+    <String, dynamic>{'nombre': 'Abogado', 'categoria': 'Derecho', 'tabuladorSugerido': 'TAB_3'},
+    <String, dynamic>{'nombre': 'Arquitecto', 'categoria': 'Construcción', 'tabuladorSugerido': 'TAB_3'},
+    <String, dynamic>{'nombre': 'Ingeniero en Sistemas', 'categoria': 'Tecnología', 'tabuladorSugerido': 'TAB_3'},
+    <String, dynamic>{'nombre': 'Desarrollador de Software', 'categoria': 'Tecnología', 'tabuladorSugerido': 'TAB_3'},
+    <String, dynamic>{'nombre': 'Medico General o Especialista', 'categoria': 'Salud', 'tabuladorSugerido': 'TAB_4'},
+    <String, dynamic>{'nombre': 'Empresario', 'categoria': 'Dirección', 'tabuladorSugerido': 'TAB_4'},
+    <String, dynamic>{'nombre': 'Director Ejecutivo', 'categoria': 'Dirección', 'tabuladorSugerido': 'TAB_5'},
   ];
 
   String _profesionSeleccionada = 'Estudiante';
@@ -97,18 +98,22 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
   final _empresaCtrl = TextEditingController();
   final _ingresoCtrl = TextEditingController();
 
-  // Paso 3: Contacto y Acceso
+  // Paso 3: Contacto y Acceso (con validación en vivo de correo existente)
   final _correoCtrl = TextEditingController();
   final _telefonoMovilCtrl = TextEditingController();
   final _telefonoAltCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _confirmPasswordCtrl = TextEditingController();
+  Timer? _correoDebounce;
+  bool _verificandoCorreo = false;
+  bool? _correoDisponible;
+  String _ultimoCorreoVerificado = '';
 
   Map<String, dynamic> get _tabuladorActual {
-    return _tabuladores.firstWhere(
-      (t) => t['id'] == _tabuladorId,
-      orElse: () => _tabuladores.first,
-    );
+    for (final t in _tabuladores) {
+      if (t['id'] == _tabuladorId) return t;
+    }
+    return _tabuladores.first;
   }
 
   double get _sueldoMin => (_tabuladorActual['minimo'] as num).toDouble();
@@ -282,6 +287,7 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
 
   @override
   void dispose() {
+    _correoDebounce?.cancel();
     _nombreCtrl.dispose();
     _segundoNombreCtrl.dispose();
     _apellidoPaternoCtrl.dispose();
@@ -906,10 +912,13 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
                 .toList(),
             onChanged: (v) {
               if (v == null) return;
-              final prof = _profesiones.firstWhere(
-                (p) => p['nombre'] == v,
-                orElse: () => _profesiones.first,
-              );
+              Map<String, dynamic> prof = _profesiones.first;
+              for (final p in _profesiones) {
+                if (p['nombre'] == v) {
+                  prof = p;
+                  break;
+                }
+              }
               final tabSugerido = (prof['tabuladorSugerido'] ?? 'TAB_1').toString();
               setState(() {
                 _profesionSeleccionada = v;
@@ -987,6 +996,40 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
     );
   }
 
+  void _onCorreoChanged(String valor) {
+    _correoDebounce?.cancel();
+    final limpio = valor.trim().toLowerCase();
+    final errFormato = FormValidators.correo(limpio);
+    if (errFormato != null) {
+      if (_correoDisponible != null || _verificandoCorreo) {
+        setState(() {
+          _correoDisponible = null;
+          _verificandoCorreo = false;
+          _ultimoCorreoVerificado = '';
+        });
+      }
+      return;
+    }
+    if (limpio == _ultimoCorreoVerificado) return;
+
+    setState(() {
+      _verificandoCorreo = true;
+      _correoDisponible = null;
+    });
+
+    _correoDebounce = Timer(const Duration(milliseconds: 450), () async {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      final disp = await auth.verificarCorreoDisponible(limpio);
+      if (!mounted || _correoCtrl.text.trim().toLowerCase() != limpio) return;
+      setState(() {
+        _verificandoCorreo = false;
+        _correoDisponible = disp;
+        _ultimoCorreoVerificado = limpio;
+      });
+      _step3Key.currentState?.validate();
+    });
+  }
+
   Widget _buildPaso3() {
     return Form(
       key: _step3Key,
@@ -997,11 +1040,35 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
           CustomTextField(
             label: 'Correo electrónico *',
             hint: 'tu.correo@gmail.com',
-            helperText: 'Debe tener un dominio real válido (ej. @gmail.com, @outlook.com)',
+            helperText: _correoDisponible == true
+                ? '✓ Correo disponible para registro'
+                : 'Debe tener un dominio real válido y no estar registrado',
             controller: _correoCtrl,
             keyboardType: TextInputType.emailAddress,
             prefixIcon: Icons.alternate_email_rounded,
-            validator: FormValidators.correo,
+            suffixIcon: _verificandoCorreo
+                ? const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : (_correoDisponible == true
+                    ? const Icon(Icons.check_circle_rounded, color: AppColors.success)
+                    : (_correoDisponible == false
+                        ? const Icon(Icons.error_rounded, color: AppColors.error)
+                        : null)),
+            onChanged: _onCorreoChanged,
+            validator: (v) {
+              final err = FormValidators.correo(v);
+              if (err != null) return err;
+              if (_correoDisponible == false) {
+                return 'Este correo ya está registrado. Usa otro correo o inicia sesión.';
+              }
+              return null;
+            },
           ),
           const SizedBox(height: 14),
           CustomTextField(

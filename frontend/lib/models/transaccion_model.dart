@@ -1,10 +1,15 @@
 class Solicitar2faRequest {
   final String numeroCuenta;
+  final bool enviarCorreo;
 
-  Solicitar2faRequest({required this.numeroCuenta});
+  Solicitar2faRequest({
+    required this.numeroCuenta,
+    this.enviarCorreo = true,
+  });
 
   Map<String, dynamic> toJson() => {
         'numeroCuenta': numeroCuenta,
+        'enviarCorreo': enviarCorreo,
       };
 }
 

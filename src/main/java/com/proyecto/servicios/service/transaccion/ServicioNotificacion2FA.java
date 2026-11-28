@@ -58,10 +58,18 @@ public class ServicioNotificacion2FA {
     }
 
     public String generarYEnviarCodigo(String numeroCuenta, String correoDestino) {
+        return generarYEnviarCodigo(numeroCuenta, correoDestino, true);
+    }
+
+    public String generarYEnviarCodigo(String numeroCuenta, String correoDestino, boolean enviarPorCorreo) {
         String codigo = String.format("%06d", random.nextInt(1_000_000));
         guardarCodigo(numeroCuenta, codigo);
 
-        enviarCorreo(correoDestino, numeroCuenta, codigo);
+        if (enviarPorCorreo) {
+            enviarCorreo(correoDestino, numeroCuenta, codigo);
+        } else {
+            log.info("Código 2FA generado sin envío de correo (autorización biométrica) para cuenta {}", numeroCuenta);
+        }
         return codigo;
     }
 

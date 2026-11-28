@@ -68,4 +68,15 @@ public class AuthController {
     public ResponseEntity<RespuestaApi<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
         return Respuestas.ok("Inicio de sesión correcto", authService.login(request));
     }
+
+    @Operation(summary = "Verificar en vivo si un correo está disponible para registro (no requiere token)")
+    @SecurityRequirements
+    @PostMapping("/verificar-correo")
+    public ResponseEntity<RespuestaApi<java.util.Map<String, Boolean>>> verificarCorreo(
+            @RequestBody java.util.Map<String, String> body) {
+        String correo = body != null ? body.get("correo") : null;
+        boolean disponible = authService.correoDisponible(correo);
+        String msg = disponible ? "Correo disponible" : "Este correo ya está registrado";
+        return Respuestas.ok(msg, java.util.Map.of("disponible", disponible));
+    }
 }

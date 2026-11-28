@@ -233,6 +233,7 @@
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">Correo Electrónico *</label>
             <input type="email" id="new-email" required placeholder="tu.correo@ejemplo.com" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+            <p id="new-email-status-msg" class="hidden text-[11px] font-semibold mt-1"></p>
           </div>
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">Teléfono Móvil (10 dígitos) *</label>
@@ -355,6 +356,10 @@
           <button onclick="app.setAppSection('historial')" id="nav-historial" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-slate-300 hover:bg-slate-800 hover:text-white">
             <i data-lucide="history" class="w-4 h-4"></i>
             <span>Historial de Pagos</span>
+          </button>
+          <button onclick="app.setAppSection('admin')" id="nav-admin" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-slate-300 hover:bg-slate-800 hover:text-white">
+            <i data-lucide="shield-plus" class="w-4 h-4"></i>
+            <span>Módulo Admin (Abonos)</span>
           </button>
         </nav>
       </div>
@@ -553,6 +558,90 @@
           </div>
         </section>
 
+        <!-- SECCIÓN 4: MÓDULO ADMIN (ABONOS A CLIENTES) -->
+        <section id="section-admin" class="hidden space-y-6">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Formulario de Abono -->
+            <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-4">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center">
+                  <i data-lucide="wallet" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <h3 class="text-sm font-extrabold text-slate-900">Abonar Saldo a Cuenta</h3>
+                  <p class="text-[11px] text-slate-500">Acreditación inmediata al cliente</p>
+                </div>
+              </div>
+
+              <div id="admin-abono-alert" class="hidden p-3 rounded-xl text-xs font-semibold"></div>
+
+              <form id="form-admin-abono" onsubmit="app.handleAbonoAdmin(event)" class="space-y-4" novalidate>
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1.5">Número de Cuenta (10 dígitos)</label>
+                  <input type="text" inputmode="numeric" maxlength="10" id="admin-cuenta" required placeholder="Ej. 8209628377" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-mono font-bold focus:outline-none focus:ring-2 focus:ring-brand-500">
+                </div>
+
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1.5">Monto a Abonar ($ MXN)</label>
+                  <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 font-bold">$</span>
+                    <input type="text" inputmode="decimal" id="admin-monto" required placeholder="0.00" class="w-full pl-8 pr-4 py-3 rounded-xl border border-slate-200 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-brand-500">
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-4 gap-2">
+                  <button type="button" onclick="app.setMontoAdmin(500)" class="py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-bold transition-colors">+$500</button>
+                  <button type="button" onclick="app.setMontoAdmin(1000)" class="py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-bold transition-colors">+$1,000</button>
+                  <button type="button" onclick="app.setMontoAdmin(5000)" class="py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-bold transition-colors">+$5,000</button>
+                  <button type="button" onclick="app.setMontoAdmin(10000)" class="py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-bold transition-colors">+$10,000</button>
+                </div>
+
+                <button type="submit" id="btn-admin-abonar" class="w-full py-3.5 px-4 btn-glow text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2">
+                  <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                  <span>Aplicar Abono</span>
+                </button>
+              </form>
+            </div>
+
+            <!-- Tabla de Clientes y Cuentas -->
+            <div class="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
+              <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 class="text-sm font-extrabold text-slate-900">Clientes y Cuentas Registradas</h3>
+                  <p class="text-[11px] text-slate-500">Haz clic en cualquier cliente para seleccionarlo</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                      <i data-lucide="search" class="w-3.5 h-3.5"></i>
+                    </span>
+                    <input type="text" id="admin-search" oninput="app.filtrarCuentasAdmin(this.value)" placeholder="Nombre, correo o cuenta..." class="pl-8 pr-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 w-56">
+                  </div>
+                  <button type="button" onclick="app.cargarCuentasAdmin()" class="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600" title="Actualizar lista">
+                    <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500 font-bold border-b border-slate-100">
+                    <tr>
+                      <th class="py-3 px-5">Cliente</th>
+                      <th class="py-3 px-4">No. Cuenta</th>
+                      <th class="py-3 px-4 text-right">Saldo Actual</th>
+                      <th class="py-3 px-5 text-center">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody id="admin-cuentas-tbody" class="divide-y divide-slate-100">
+                    <tr><td colspan="4" class="py-8 text-center text-slate-400">Cargando cuentas...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
       </div>
     </main>
   </div>
@@ -624,15 +713,15 @@
         </form>
       </div>
 
-      <!-- Paso 3: Modal de Ingreso de Código 2FA -->
+      <!-- Paso 3: Modal de Ingreso de Código 2FA (Envío bajo demanda) -->
       <div id="modal-step-2fa" class="hidden text-center space-y-5">
         <div class="w-14 h-14 rounded-2xl bg-brand-50 text-brand-700 mx-auto flex items-center justify-center shadow-sm">
-          <i data-lucide="mail-check" class="w-7 h-7"></i>
+          <i data-lucide="shield-check" class="w-7 h-7"></i>
         </div>
         <div>
           <h3 class="text-lg font-extrabold text-slate-900">Código de Seguridad 2FA</h3>
-          <p class="text-xs text-slate-500 mt-1">
-            Enviamos un token de 6 dígitos a tu correo: <strong id="correo-enmascarado-2fa">***@***.com</strong>
+          <p id="texto-subtitulo-2fa" class="text-xs text-slate-500 mt-1">
+            Solicita un código de 6 dígitos a tu correo cuando estés listo para autorizar este pago.
           </p>
         </div>
 
@@ -643,18 +732,37 @@
           <div class="flex justify-between border-t border-slate-200 pt-1.5"><span class="text-slate-500">Total a Pagar:</span><span id="2fa-resumen-monto" class="font-extrabold text-brand-700 text-sm">$0.00</span></div>
         </div>
 
-        <!-- Banner opcional de respaldo 2FA en pantalla -->
-        <div id="banner-codigo-respaldo-2fa" onclick="app.usarCodigoRespaldo2fa()" class="hidden cursor-pointer bg-brand-50 border border-brand-200 rounded-xl p-3 flex items-center justify-between text-left hover:bg-brand-100 transition-colors">
-          <div>
-            <span class="block text-[11px] font-semibold text-slate-500">Código de verificación (respaldo en pantalla)</span>
-            <span id="valor-codigo-respaldo-2fa" class="font-mono text-base font-extrabold tracking-[0.25em] text-brand-700">------</span>
-          </div>
-          <span class="text-xs font-bold text-brand-700">Autollenar</span>
+        <!-- Botón de solicitud de correo bajo demanda -->
+        <div id="bloque-solicitar-2fa">
+          <button type="button" id="btn-enviar-codigo-2fa" onclick="app.solicitarCodigo2faWeb()" class="w-full py-3.5 px-4 btn-glow text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-md">
+            <i data-lucide="mail" class="w-4 h-4"></i>
+            <span>Enviar código 2FA a mi correo</span>
+          </button>
         </div>
 
-        <div>
-          <label class="block text-xs font-bold text-slate-700 mb-2">Ingresa el código de 6 dígitos</label>
-          <input type="text" id="input-codigo-2fa" maxlength="6" placeholder="000000" class="w-44 text-center tracking-[0.4em] py-3 text-xl font-mono font-bold rounded-xl border-2 border-brand-500 focus:outline-none">
+        <!-- Bloque que aparece SOLO después de pedir el código -->
+        <div id="bloque-input-2fa" class="hidden space-y-4">
+          <p class="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 font-semibold">
+            Enviamos tu código de 6 dígitos a: <strong id="correo-enmascarado-2fa">tu correo</strong>
+          </p>
+
+          <!-- Banner opcional de respaldo 2FA en pantalla -->
+          <div id="banner-codigo-respaldo-2fa" onclick="app.usarCodigoRespaldo2fa()" class="hidden cursor-pointer bg-brand-50 border border-brand-200 rounded-xl p-3 flex items-center justify-between text-left hover:bg-brand-100 transition-colors">
+            <div>
+              <span class="block text-[11px] font-semibold text-slate-500">Código de verificación (respaldo en pantalla)</span>
+              <span id="valor-codigo-respaldo-2fa" class="font-mono text-base font-extrabold tracking-[0.25em] text-brand-700">------</span>
+            </div>
+            <span class="text-xs font-bold text-brand-700">Autollenar</span>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-2">Ingresa el código de 6 dígitos</label>
+            <input type="text" id="input-codigo-2fa" maxlength="6" placeholder="000000" class="w-44 text-center tracking-[0.4em] py-3 text-xl font-mono font-bold rounded-xl border-2 border-brand-500 focus:outline-none">
+          </div>
+
+          <button type="button" onclick="app.solicitarCodigo2faWeb()" class="text-xs font-bold text-brand-700 hover:underline">
+            ¿No te llegó? Reenviar código
+          </button>
         </div>
 
         <div id="alerta-error-2fa" class="hidden p-3 bg-red-50 text-red-700 rounded-xl text-xs font-semibold"></div>
@@ -663,7 +771,7 @@
           <button type="button" onclick="app.volverPasoFormulario()" class="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-xs">
             Modificar Datos
           </button>
-          <button type="button" id="btn-confirmar-2fa" onclick="app.confirmarPagoFinal()" class="flex-1 py-3 bg-brand-700 hover:bg-brand-800 text-white font-bold rounded-xl text-xs shadow-md">
+          <button type="button" id="btn-confirmar-2fa" onclick="app.confirmarPagoFinal()" class="hidden flex-1 py-3 bg-brand-700 hover:bg-brand-800 text-white font-bold rounded-xl text-xs shadow-md">
             Autorizar Pago
           </button>
         </div>
@@ -693,7 +801,7 @@
           <div class="flex justify-between border-t border-slate-200 pt-2"><span id="recibo-monto-label" class="text-slate-600 font-bold">Importe Pagado:</span><span id="recibo-monto" class="text-base font-extrabold text-slate-900">$0.00</span></div>
           <div class="flex justify-between"><span class="text-slate-500">Saldo en Cuenta:</span><span id="recibo-nuevo-saldo" class="font-bold text-emerald-600">$0.00</span></div>
           <div id="recibo-leyenda-box" class="mt-3 p-3 rounded-xl bg-brand-50 border border-brand-200 text-[11px] text-slate-700 leading-relaxed">
-            <strong id="recibo-leyenda-titulo" class="block text-brand-700 mb-0.5">Leyenda del producto / Reclamaciones:</strong>
+            <strong id="recibo-leyenda-titulo" class="block text-brand-700 mb-0.5">Dudas y aclaraciones:</strong>
             <span id="recibo-leyenda">-</span>
           </div>
         </div>

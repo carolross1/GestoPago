@@ -275,9 +275,7 @@ class ComprobanteScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            aprobada
-                                ? 'Leyenda del producto / Aclaraciones'
-                                : 'Leyenda del producto para reclamación',
+                            'Dudas y aclaraciones',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w800,

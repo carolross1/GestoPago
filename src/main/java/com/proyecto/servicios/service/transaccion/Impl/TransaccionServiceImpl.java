@@ -120,7 +120,10 @@ public class TransaccionServiceImpl implements TransaccionService {
                     "El cliente de la cuenta " + request.getNumeroCuenta() + " no tiene correo registrado para enviar el 2FA");
         }
 
-        String codigo = servicio2fa.generarYEnviarCodigo(cuenta.getNumeroCuenta(), cliente.getCorreo());
+        boolean enviarCorreo = !Boolean.FALSE.equals(request.getEnviarCorreo());
+        String codigo = enviarCorreo
+                ? servicio2fa.generarYEnviarCodigo(cuenta.getNumeroCuenta(), cliente.getCorreo())
+                : servicio2fa.generarYEnviarCodigo(cuenta.getNumeroCuenta(), cliente.getCorreo(), false);
 
         return Solicitar2faResponse.builder()
                 .numeroCuenta(cuenta.getNumeroCuenta())

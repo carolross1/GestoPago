@@ -7,6 +7,7 @@ import '../../providers/cuenta_provider.dart';
 import '../../providers/pago_provider.dart';
 import '../../providers/productos_provider.dart';
 import '../../widgets/brand_logo_widget.dart';
+import '../admin/admin_abonos_screen.dart';
 import '../auth/login_screen.dart';
 import '../perfil/perfil_screen.dart';
 import '../servicios/catalogo_servicios_screen.dart';
@@ -204,6 +205,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     title: 'Mi Perfil & Seguridad',
                     isSelected: _currentSection == 3,
                     onTap: () => _abrirSeccion(3),
+                  ),
+                  const Divider(color: Colors.white12, height: 24),
+                  _buildDrawerItem(
+                    icon: Icons.admin_panel_settings_rounded,
+                    title: 'Módulo Admin (Abonos)',
+                    isSelected: false,
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const AdminAbonosScreen()),
+                      );
+                    },
                   ),
                 ],
               ),

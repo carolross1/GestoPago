@@ -9,4 +9,6 @@ public interface AuthService {
     void registrar(RegistroLoginRequest request);
 
     LoginResponse login(LoginRequest request);
+
+    boolean correoDisponible(String correo);
 }

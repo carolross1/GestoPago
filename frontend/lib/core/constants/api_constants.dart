@@ -13,6 +13,7 @@ class ApiConstants {
   // Auth
   static const String login = '/auth/login';
   static const String registroPortal = '/auth/registro';
+  static const String verificarCorreo = '/auth/verificar-correo';
 
   // Clientes
   static const String crearCliente = '/clientes';
@@ -22,6 +23,7 @@ class ApiConstants {
 
   // Cuentas y Saldos
   static const String buscarCuentas = '/cuentas/buscar';
+  static const String abonarCuenta = '/cuentas/abono';
 
   // Catálogos y Productos
   static const String productos = '/productos';

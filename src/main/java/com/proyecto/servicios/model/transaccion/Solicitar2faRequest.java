@@ -16,4 +16,7 @@ public class Solicitar2faRequest extends SolicitudEstricta {
     @Pattern(regexp = "^\\d{10}$", message = "El número de cuenta debe tener exactamente 10 dígitos")
     @Schema(description = "Número de cuenta de 10 dígitos del cliente", example = "1452864812")
     private String numeroCuenta;
+
+    @Schema(description = "Indica si se debe enviar el código por correo electrónico (true = enviar correo, false = solo generar token para biometría)", example = "true")
+    private Boolean enviarCorreo;
 }

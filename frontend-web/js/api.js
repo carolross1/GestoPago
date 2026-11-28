@@ -58,35 +58,51 @@ const API = {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
+
     try {
       const response = await fetch(url, {
         ...options,
-        headers
+        headers,
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
 
       const data = await response.json().catch(() => ({}));
 
       if (response.status === 401 && !endpoint.includes('/auth/login')) {
         this.logout();
         window.location.reload();
-        throw new Error('Sesión expirada o token inválido');
+        return {
+          ok: false,
+          status: 401,
+          data: null,
+          mensaje: 'Tu sesión expiró. Inicia sesión nuevamente.',
+          errores: []
+        };
       }
 
+      const mensajeAmigable = data.mensaje || (response.ok ? '' : 'No pudimos completar tu solicitud. Intenta de nuevo.');
       return {
         ok: response.ok,
         status: response.status,
         data: data.datos !== undefined ? data.datos : data,
-        mensaje: data.mensaje || '',
-        errores: data.errores || []
+        mensaje: mensajeAmigable,
+        errores: Array.isArray(data.errores) ? data.errores : []
       };
     } catch (err) {
+      clearTimeout(timeoutId);
       console.error(`Error en petición a ${endpoint}:`, err);
+      const mensajeUsuario = err && err.name === 'AbortError'
+        ? 'El servicio tardó demasiado en responder. Intenta de nuevo en unos segundos.'
+        : 'No pudimos conectar con el servicio. Verifica tu conexión a internet e intenta de nuevo.';
       return {
         ok: false,
         status: 0,
         data: null,
-        mensaje: err.message || 'Error de conexión con el servidor',
-        errores: [err.message]
+        mensaje: mensajeUsuario,
+        errores: []
       };
     }
   },
@@ -103,6 +119,13 @@ const API = {
     return this.request('/auth/registro', {
       method: 'POST',
       body: JSON.stringify({ correo, password })
+    });
+  },
+
+  async verificarCorreo(correo) {
+    return this.request('/auth/verificar-correo', {
+      method: 'POST',
+      body: JSON.stringify({ correo })
     });
   },
 
@@ -172,6 +195,41 @@ const API = {
     return { ok: false, data: null, mensaje: 'Cuenta no encontrada' };
   },
 
+  // Administración (Listar clientes/cuentas y abonar saldo)
+  async listarClientes() {
+    const resp = await this.request('/clientes/buscar', {
+      method: 'POST',
+      body: JSON.stringify({ pagina: 0, tamano: 100 })
+    });
+    if (resp.ok && resp.data) {
+      const lista = resp.data.contenido || resp.data.elementos || (Array.isArray(resp.data) ? resp.data : []);
+      return { ok: true, data: lista };
+    }
+    return { ok: false, data: [], mensaje: resp.mensaje || 'No se pudieron consultar los clientes' };
+  },
+
+  async listarCuentas() {
+    const resp = await this.request('/cuentas/buscar', {
+      method: 'POST',
+      body: JSON.stringify({ pagina: 0, tamano: 100 })
+    });
+    if (resp.ok && resp.data) {
+      const lista = resp.data.contenido || resp.data.elementos || (Array.isArray(resp.data) ? resp.data : []);
+      return { ok: true, data: lista };
+    }
+    return { ok: false, data: [], mensaje: resp.mensaje || 'No se pudieron consultar las cuentas' };
+  },
+
+  async abonarCuenta(numeroCuenta, monto) {
+    return this.request('/cuentas/abono', {
+      method: 'POST',
+      body: JSON.stringify({
+        numeroCuenta: String(numeroCuenta).trim(),
+        monto: Number(monto)
+      })
+    });
+  },
+
   // Catálogo de Productos
   async obtenerProductos() {
     return this.request('/productos', {
@@ -192,10 +250,10 @@ const API = {
     });
   },
 
-  async solicitar2fa(numeroCuenta) {
+  async solicitar2fa(numeroCuenta, enviarCorreo = true) {
     return this.request('/transacciones/2fa', {
       method: 'POST',
-      body: JSON.stringify({ numeroCuenta })
+      body: JSON.stringify({ numeroCuenta, enviarCorreo })
     });
   },
 

@@ -99,4 +99,12 @@ public class AuthServiceImpl implements AuthService {
         log.info("Login exitoso para cliente id={}", cliente.getId());
         return new LoginResponse(token, jwtUtil.getExpiracionMs());
     }
+
+    @Override
+    public boolean correoDisponible(String correo) {
+        if (correo == null || correo.isBlank()) {
+            return false;
+        }
+        return !clienteRepository.existsByCorreo(CorreoUtil.normalizar(correo));
+    }
 }

@@ -25,7 +25,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -184,5 +186,16 @@ class AuthServiceImplTest {
         when(loginRepository.findByClienteId(1L)).thenReturn(Optional.empty());
 
         assertThrows(LoginNoRegistradoException.class, () -> authService.login(request));
+    }
+
+    @Test
+    void correoDisponible_retornaTrueCuandoNoExisteYFalseCuandoYaExiste() {
+        when(clienteRepository.existsByCorreo("nuevo@correo.com")).thenReturn(false);
+        when(clienteRepository.existsByCorreo("existente@correo.com")).thenReturn(true);
+
+        assertTrue(authService.correoDisponible("  Nuevo@Correo.com "));
+        assertFalse(authService.correoDisponible("existente@correo.com"));
+        assertFalse(authService.correoDisponible("   "));
+        assertFalse(authService.correoDisponible(null));
     }
 }

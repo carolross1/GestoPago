@@ -45,6 +45,7 @@ class _Modal2FAState extends State<Modal2FA> {
   bool _biometriaDisponible = false;
   bool _usarCodigoManual = false;
   bool _autenticandoHuella = false;
+  bool _codigoCorreoEnviado = false;
 
   @override
   void initState() {
@@ -55,12 +56,9 @@ class _Modal2FAState extends State<Modal2FA> {
   Future<void> _verificarBiometria() async {
     final puedeHuella = await BiometricService.instance.canUseBiometricPayments();
     if (!mounted) return;
-    final pagoProv = Provider.of<PagoProvider>(context, listen: false);
-    final tieneTokenBackend =
-        pagoProv.solicitud2fa?.codigoParaPruebas?.isNotEmpty == true;
     setState(() {
-      _biometriaDisponible = puedeHuella && tieneTokenBackend;
-      _usarCodigoManual = !_biometriaDisponible;
+      _biometriaDisponible = puedeHuella;
+      _usarCodigoManual = !puedeHuella;
     });
   }
 
@@ -68,6 +66,32 @@ class _Modal2FAState extends State<Modal2FA> {
   void dispose() {
     _codigoController.dispose();
     super.dispose();
+  }
+
+  Future<void> _solicitarCodigoPorCorreo() async {
+    final pagoProv = Provider.of<PagoProvider>(context, listen: false);
+    final ok = await pagoProv.solicitarCodigo2fa(widget.numeroCuenta, enviarCorreo: true);
+    if (!mounted) return;
+    if (ok) {
+      setState(() => _codigoCorreoEnviado = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Código enviado a ${pagoProv.solicitud2fa?.correoEnmascarado ?? 'tu correo registrado'}.',
+          ),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(pagoProv.errorMessage ?? 'No se pudo enviar el código de verificación'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   Future<void> _procesarPagoConCodigo(String codigo) async {
@@ -119,27 +143,46 @@ class _Modal2FAState extends State<Modal2FA> {
   Future<void> _confirmarConHuella() async {
     if (_autenticandoHuella) return;
 
-    final pagoProv = Provider.of<PagoProvider>(context, listen: false);
-    final codigoToken = pagoProv.solicitud2fa?.codigoParaPruebas;
-    if (codigoToken == null || codigoToken.isEmpty) {
-      setState(() => _usarCodigoManual = true);
-      return;
-    }
-
     setState(() => _autenticandoHuella = true);
     final resultado = await BiometricService.instance.authenticate(
       reason:
           'Autoriza tu pago de ${CurrencyFormatter.format(widget.monto)} a ${widget.servicioNombre}',
     );
     if (!mounted) return;
+
+    if (!resultado.success) {
+      setState(() => _autenticandoHuella = false);
+      if (resultado.errorMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(resultado.errorMessage!),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Genera token de un solo uso SIN enviar correo para no saturar la bandeja del usuario
+    final pagoProv = Provider.of<PagoProvider>(context, listen: false);
+    final okToken = await pagoProv.solicitarCodigo2fa(
+      widget.numeroCuenta,
+      enviarCorreo: false,
+    );
+    if (!mounted) return;
     setState(() => _autenticandoHuella = false);
 
-    if (resultado.success) {
+    final codigoToken = pagoProv.solicitud2fa?.codigoParaPruebas;
+    if (okToken && codigoToken != null && codigoToken.isNotEmpty) {
       await _procesarPagoConCodigo(codigoToken);
-    } else if (resultado.errorMessage != null) {
+    } else {
+      setState(() => _usarCodigoManual = true);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(resultado.errorMessage!),
+          content: Text(
+            pagoProv.errorMessage ?? 'Solicita tu código 2FA por correo para completar el pago.',
+          ),
           backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
         ),
@@ -156,7 +199,6 @@ class _Modal2FAState extends State<Modal2FA> {
   Widget build(BuildContext context) {
     final pagoProv = Provider.of<PagoProvider>(context);
     final correo = pagoProv.solicitud2fa?.correoEnmascarado ?? 'tu correo registrado';
-    final codigoRespaldo = pagoProv.solicitud2fa?.codigoParaPruebas;
     final maxModalHeight = MediaQuery.of(context).size.height * 0.90;
     final modoHuella = _biometriaDisponible && !_usarCodigoManual;
 
@@ -227,8 +269,10 @@ class _Modal2FAState extends State<Modal2FA> {
                     const SizedBox(height: 6),
                     Text(
                       modoHuella
-                          ? 'Verifica los datos y confirma el pago usando el lector de huella de tu dispositivo.'
-                          : 'Hemos enviado un código de 6 dígitos a $correo para autorizar tu operación.',
+                          ? 'Verifica los datos y confirma el pago usando tu huella digital.'
+                          : (_codigoCorreoEnviado
+                              ? 'Ingresa el código de 6 dígitos enviado a $correo.'
+                              : 'Solicita el envío del código de 6 dígitos a tu correo solo cuando lo necesites.'),
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 13,
@@ -238,7 +282,7 @@ class _Modal2FAState extends State<Modal2FA> {
                     ),
                     const SizedBox(height: 14),
 
-                    // Resumen de la Operación (Confirmación explícita con datos visibles)
+                    // Resumen de la Operación
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
@@ -308,14 +352,14 @@ class _Modal2FAState extends State<Modal2FA> {
                       CustomButton(
                         text: 'Autorizar con Huella Digital',
                         icon: Icons.fingerprint_rounded,
-                        isLoading: _autenticandoHuella || pagoProv.isProcesandoPago,
+                        isLoading: _autenticandoHuella || pagoProv.isProcesandoPago || pagoProv.isEnviando2fa,
                         onPressed: _confirmarConHuella,
                       ),
                       const SizedBox(height: 8),
                       TextButton(
                         onPressed: () => setState(() => _usarCodigoManual = true),
                         child: const Text(
-                          'Usar código 2FA de 6 dígitos en su lugar',
+                          'Usar código 2FA por correo en su lugar',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -324,86 +368,51 @@ class _Modal2FAState extends State<Modal2FA> {
                         ),
                       ),
                     ] else ...[
-                      if (codigoRespaldo != null && codigoRespaldo.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: () {
-                            _codigoController.text = codigoRespaldo;
+                      const SizedBox(height: 16),
+                      if (!_codigoCorreoEnviado) ...[
+                        CustomButton(
+                          text: 'Enviar código 2FA a mi correo',
+                          icon: Icons.mail_outline_rounded,
+                          isLoading: pagoProv.isEnviando2fa,
+                          onPressed: _solicitarCodigoPorCorreo,
+                        ),
+                      ] else ...[
+                        CustomTextField(
+                          label: 'Código de 6 dígitos',
+                          hint: '123456',
+                          controller: _codigoController,
+                          keyboardType: TextInputType.number,
+                          prefixIcon: Icons.key_rounded,
+                          validator: (val) {
+                            if (val == null || val.trim().length != 6) {
+                              return 'Ingresa el código de 6 dígitos';
+                            }
+                            return null;
                           },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: AppColors.accentSoft,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.key_rounded, color: AppColors.accent, size: 18),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Código de verificación (respaldo en pantalla)',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: AppColors.textSecondary,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      Text(
-                                        codigoRespaldo,
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w900,
-                                          color: AppColors.accent,
-                                          letterSpacing: 3,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const Text(
-                                  'Autollenar',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.accent,
-                                  ),
-                                ),
-                              ],
+                        ),
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: pagoProv.isEnviando2fa ? null : _solicitarCodigoPorCorreo,
+                            child: const Text(
+                              'Reenviar código a mi correo',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.accent,
+                              ),
                             ),
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        CustomButton(
+                          text: 'Confirmar y Pagar',
+                          icon: Icons.check_circle_outline_rounded,
+                          isLoading: pagoProv.isProcesandoPago,
+                          onPressed: _confirmarConCodigo,
+                        ),
                       ],
-                      const SizedBox(height: 14),
-
-                      // Campo de código de 6 dígitos
-                      CustomTextField(
-                        label: 'Código de 6 dígitos',
-                        hint: '123456',
-                        controller: _codigoController,
-                        keyboardType: TextInputType.number,
-                        prefixIcon: Icons.key_rounded,
-                        validator: (val) {
-                          if (val == null || val.trim().length != 6) {
-                            return 'Ingresa el código de 6 dígitos';
-                          }
-                          return null;
-                        },
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      CustomButton(
-                        text: 'Confirmar y Pagar',
-                        icon: Icons.check_circle_outline_rounded,
-                        isLoading: pagoProv.isProcesandoPago,
-                        onPressed: _confirmarConCodigo,
-                      ),
                       if (_biometriaDisponible) ...[
                         const SizedBox(height: 8),
                         TextButton.icon(

@@ -188,7 +188,7 @@ public class ServicioNotificacionPago {
                 + "          <tr><td style='padding: 9px 0; color: #6b7280;'>Saldo en cuenta:</td><td style='padding: 9px 0; font-weight: 600; text-align: right;'>$" + datos.getSaldoRestante() + " MXN</td></tr>"
                 + "        </table>"
                 + "        <div style='background-color: " + cajaBg + "; border: 1px solid " + cajaBorder + "; border-radius: 10px; padding: 14px; margin-top: 14px; font-size: 12px; color: " + cajaColor + "; line-height: 1.5;'>"
-                + "          <strong>Leyenda del producto / Reclamaciones:</strong><br/>" + leyenda
+                + "          <strong>Dudas y aclaraciones:</strong><br/>" + leyenda
                 + "        </div>"
                 + "      </td>"
                 + "    </tr>"

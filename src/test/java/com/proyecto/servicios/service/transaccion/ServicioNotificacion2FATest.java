@@ -104,6 +104,21 @@ class ServicioNotificacion2FATest {
     }
 
     @Test
+    @DisplayName("generarYEnviarCodigo con enviarPorCorreo=false guarda el codigo sin enviar correo")
+    void generarCodigoSilenciosoSinCorreo() {
+        when(redisTemplateProvider.getIfAvailable()).thenReturn(redisTemplate);
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+
+        String codigo = servicio.generarYEnviarCodigo("1234567890", "cliente@correo.com", false);
+
+        assertNotNull(codigo);
+        assertEquals(6, codigo.length());
+        verify(valueOperations).set(eq("2fa:cuenta:1234567890"), eq(codigo), any(Duration.class));
+        verify(mailSenderProvider, never()).getIfAvailable();
+        verify(mailSender, never()).send(any(MimeMessage.class));
+    }
+
+    @Test
     @DisplayName("enmascararCorreo oculta caracteres centrales de acuerdo a la longitud")
     void enmascararCorreo() {
         assertEquals("c***s@correo.com", servicio.enmascararCorreo("carlos@correo.com"));

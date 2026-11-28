@@ -147,7 +147,6 @@ class _PagoServicioScreenState extends State<PagoServicioScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final cuentaProv = Provider.of<CuentaProvider>(context, listen: false);
-    final pagoProv = Provider.of<PagoProvider>(context, listen: false);
 
     final numeroCuenta = cuentaProv.cuenta?.numeroCuenta;
     if (numeroCuenta == null || numeroCuenta.isEmpty) {
@@ -173,40 +172,26 @@ class _PagoServicioScreenState extends State<PagoServicioScreen> {
       return;
     }
 
-    // Paso: Enviar código 2FA por correo
-    final enviado = await pagoProv.solicitarCodigo2fa(numeroCuenta);
+    // Abrir modal de confirmación (NO envía correo 2FA hasta que el usuario lo solicite)
+    final tipoDestino = _esTelefono ? 'TELEFONO' : 'TRANSFERENCIA';
+    final destino = _destinoController.text.trim();
 
-    if (!mounted) return;
-
-    if (enviado) {
-      final tipoDestino = _esTelefono ? 'TELEFONO' : 'TRANSFERENCIA';
-      final destino = _destinoController.text.trim();
-
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => Modal2FA(
-          numeroCuenta: numeroCuenta,
-          idServicio: widget.producto.idServicio,
-          idProducto: widget.producto.idProducto,
-          monto: monto,
-          tipoDestino: tipoDestino,
-          telefono: _esTelefono ? destino : null,
-          referencia: !_esTelefono ? destino : null,
-          servicioNombre: widget.producto.servicio,
-          productoNombre: widget.producto.producto,
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(pagoProv.errorMessage ?? 'Error al solicitar código 2FA'),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Modal2FA(
+        numeroCuenta: numeroCuenta,
+        idServicio: widget.producto.idServicio,
+        idProducto: widget.producto.idProducto,
+        monto: monto,
+        tipoDestino: tipoDestino,
+        telefono: _esTelefono ? destino : null,
+        referencia: !_esTelefono ? destino : null,
+        servicioNombre: widget.producto.servicio,
+        productoNombre: widget.producto.producto,
+      ),
+    );
   }
 
   @override
